@@ -1,0 +1,60 @@
+name: Extrator de dados do GitHub
+
+on:
+  workflow_dispatch:  # Permite execução manual
+    inputs:
+      repositorio:
+        description: 'Nome do repositório (deixe vazio para todos)'
+        required: false
+        default: ''
+      extracao_global: 
+        description: 'Extrai variaveis globais (independente de repos)?'
+        required: true
+        type: boolean
+        default: false
+      txt2tsv:
+        description: 'Converte .txt em .tsv?'
+        required: true
+        type: boolean
+        default: true
+      debug:
+        description: 'Debug?'
+        required: true
+        type: boolean
+        default: false
+
+jobs:
+  extract:
+    runs-on: self-hosted
+    env:
+      DEBUG: ${{ github.event.inputs.debug }}
+      ACTIONS_RUNNER_DEBUG: ${{ github.event.inputs.debug }}
+      ACTIONS_STEP_DEBUG: ${{ github.event.inputs.debug }}
+      ACTIONS_RUNNER_HTTPTRACE: ${{ github.event.inputs.debug }}
+      TARGET_BRANCH: ${{ github.event_name == 'pull_request' && github.base_ref || github.ref_name }}
+      GITHUB_TOKEN: ${{ secrets.SEC_GITHUB_TOKEN }}
+      REPOSITORIO: ${{ github.event.inputs.repositorio }}
+      EXTRACAO_GLOBAL: ${{ github.event.inputs.extracao_global }}
+      TXT2TSV: ${{ github.event.inputs.txt2tsv }}
+
+    steps:
+    - name: Checkout do código
+      uses: actions/checkout@v4
+      
+    - name: Exibe variaveis de ambiente
+      if: success()
+      run: |
+        for var in $(compgen -e); do
+          echo $var=${!var};
+        done
+        
+    - name: Extract
+      run: chmod +x ./extract.sh && ./extract.sh
+
+    - name: Upload arquivos .txt e .tsv
+      uses: actions/upload-artifact@v4
+      with:
+        name: arquivos
+        path: |
+          *.txt
+          *.tsv

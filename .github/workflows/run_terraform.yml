@@ -1,0 +1,727 @@
+# Extrai dados do github via api rest e gera scripts terraform permitindo:  
+# 1 - extrair, importar, alterar e reaplicar configuracoes de um repositorio existente artravés do terraform
+# 2 - ler as configurações de um repositório "origem" e aplicar via terraform para um "destino" (cria novo ou faz update)
+name: Script terraform
+
+on:
+  workflow_dispatch:  # Permite execução manual
+    inputs:
+      source_repo:
+        description: 'Repositório ORIGEM (obrigatorio)'
+        required: true
+        default: ''
+      target_repo:
+        description: 'Repositório DESTINO (clone opcional)'
+        required: false
+        default: ''
+      extract_main:
+        description: 'Criar Script main.tf'
+        required: true
+        type: boolean
+        default: true
+      extract_import:
+        description: 'Criar Script import.tf'
+        required: true
+        type: boolean
+        default: true
+      plan_terraform:
+        description: 'Plan terraform?'
+        required: true
+        type: boolean
+        default: true
+      apply_terraform:
+        description: 'Apply terraform?'
+        required: true
+        type: boolean
+        default: false
+      clone_repo:
+        description: 'Clona conteudo para destino NOVO apenas?'
+        required: true
+        type: boolean
+        default: false        
+      debug:
+        description: 'Debug?'
+        required: true
+        type: boolean
+        default: false
+
+jobs:
+  run_terraform:
+    runs-on: [ self-hosted, dev ]
+    env:
+      ACTIONS_RUNNER_DEBUG: ${{ github.event.inputs.debug }}
+      ACTIONS_STEP_DEBUG: ${{ github.event.inputs.debug }}
+      ACTIONS_RUNNER_HTTPTRACE: ${{ github.event.inputs.debug }}
+      DEBUG: ${{ github.event.inputs.debug }}
+      TF_LOG: ${{ github.event.inputs.debug == 'true' && 'DEBUG' || '' }}
+      TARGET_BRANCH: ${{ github.event_name == 'pull_request' && github.base_ref || github.ref_name }}
+      SOURCE_REPO: ${{ github.event.inputs.source_repo }}
+      TARGET_REPO: ${{ github.event.inputs.target_repo || github.event.inputs.source_repo }}
+      EXTRACT_MAIN: ${{ github.event.inputs.extract_main }}
+      EXTRACT_IMPORT: ${{ github.event.inputs.extract_import }}
+      # secrets.tf para injetar nos scripts terraform  --------------------------------------
+      # defina as secrets neste projeto e aqui para propagar na execucao dos scripts 
+      GITHUB_TOKEN: ${{ secrets.SEC_GITHUB_TOKEN }}
+      GITHUB_OWNER: ${{ github.repository_owner }}
+      NEXUS_USER: ${{ secrets.NEXUS_USER }}
+      NEXUS_PASS: ${{ secrets.NEXUS_PASS }}
+
+    steps:
+    
+    - uses: actions/checkout@v4
+
+    - name: Exibe variaveis de ambiente
+      if: ${{ success() }}
+      run: |
+        for var in $(compgen -e); do
+          echo $var=${!var};
+        done
+
+    - name: Valida e instala ferramentas
+      if: ${{ success() }}
+      run: |
+        . ./functions.sh
+        install_tools
+
+    - name: Verifica se SOURCE_REPO existe
+      if: ${{ success() }}
+      run: |
+        set +e
+        . ./functions.sh
+        if [[ "${SOURCE_REPO}" != "${TARGET_REPO}" ]]; then
+          echo -e "------------------------------\nVerifica se o repos DESTINO ${TARGET_REPO} existe"
+          TARGET_REPO_FULL=$(curl -k -s -L \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY_OWNER}/${TARGET_REPO}" |format_json2 "repo_target" ";$(echo -e "\t")"|tr -d '\n')
+          eval ${TARGET_REPO_FULL}
+          if [[ "$DEBUG" == "true" ]]; then
+            set|grep "^repo_target_"
+          else
+            set|grep -E "^repo_target_full_name" 
+          fi
+          TARGET_REPO_FULL=$(echo "${TARGET_REPO_FULL}"|grep -v 'repo_target_status="')
+        fi
+        echo -e "------------------------------\nVerifica se o repos ORIGEM ${SOURCE_REPO} existe"
+        SOURCE_REPO_FULL=$(curl -k -s -L \
+          -H "Accept: application/vnd.github+json" \
+          -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+          -H "X-GitHub-Api-Version: 2022-11-28" \
+          "https://api.github.com/repos/${GITHUB_REPOSITORY_OWNER}/${SOURCE_REPO}" |format_json2 "repo_source" ";$(echo -e "\t")"|tr -d '\n')
+          eval ${SOURCE_REPO_FULL}
+        if [[ "$DEBUG" == "true" ]]; then
+          set|grep "^repo_source_"
+        else
+          set|grep -E "^repo_source_full_name" 
+        fi
+        if [[ -z "${repo_source_name}" ]]; then 
+          if [[ "$EXTRACT_MAIN" == "true" || "$EXTRACT_IMPORT" == "true" ]]; then
+            echo "Repositorio $SOURCE_REPO nao encontrado para extracao"
+            exit 1
+          else
+            if [[ ! -f $GITHUB_WORKSPACE/repos/$TARGET_REPO/main.tf ]]; then
+              echo "Nao foi selecionada a opcao main ou import e nao existe repos/$TARGET_REPO/main.tf para execucao pelo terraform"
+              exit 1
+            else
+              echo "SOURCE_REPO nao existe. Vai criar ou sobreescrever o repos $TARGET_REPO"
+            fi
+          fi
+        else
+          echo "SOURCE_REPO existe: ${SOURCE_REPO}"
+        fi
+        echo "SOURCE_REPO_FULL=${SOURCE_REPO_FULL}" >> $GITHUB_ENV
+        echo "TARGET_REPO_FULL=${TARGET_REPO_FULL}" >> $GITHUB_ENV        
+
+    - name: Extrai dados via API REST
+      if: ${{ success() && ( github.event.inputs.extract_main == 'true' || github.event.inputs.extract_import == 'true' ) }} 
+      run: |
+        set +e
+        . ./functions.sh
+        echo $PATH
+        which gawk
+        # pwd
+        # ls -latr $GITHUB_WORKSPACE
+        chmod +x $GITHUB_WORKSPACE/extract.sh
+        mkdir -p $GITHUB_WORKSPACE/repos/$TARGET_REPO
+        cd $GITHUB_WORKSPACE/repos/$TARGET_REPO
+        pwd
+        if [[ "$EXTRACT_MAIN" == "true" || "$EXTRACT_IMPORT" == "true" ]]; then
+          echo "Executando extracao"
+          $GITHUB_WORKSPACE/extract.sh false true "repo_name=\"$SOURCE_REPO\"|repo_name=\"$TARGET_REPO\""
+        fi
+        find . -maxdepth 1 -type f -regex ".*\.txt" -exec wc -l {} \;
+  
+    # gera comandos terraform para repositorio 
+    - name: Terraform - Repos
+      if: ${{ success() && ( github.event.inputs.extract_main == 'true' || github.event.inputs.extract_import == 'true' ) }} 
+      run: |
+        set +e
+        . ./functions.sh
+        cd $GITHUB_WORKSPACE/repos/$TARGET_REPO
+        while read -r repo && [[ ! -z "${repo}" ]]; do
+          eval $repo
+          if [[ "$DEBUG" == "true" ]]; then
+            set|grep "^var_repo"
+          else
+            set|grep -E "^var_repo_full_name"
+          fi
+          #
+          if [[ -z "$var_repo_full_name" ]]; then
+            echo "Repositorio ${SOURCE_REPO} nao encontrado"
+            echo "conteudo do arquivo de repositorios"
+            cat repos.txt
+            exit 1
+          fi
+          #
+          if [[ "$EXTRACT_MAIN" == "true" && "${var_repo_full_name}" == "${GITHUB_REPOSITORY_OWNER}/${SOURCE_REPO}" ]]; then
+          rm -f secrets.tf main.tf
+          echo "# SOURCE_REPO: $SOURCE_REPO"|tee -a main.tf secrets.tf > /dev/null
+          echo "# TARGET_REPO: $TARGET_REPO"|tee -a main.tf secrets.tf > /dev/null
+          echo "# BRANCH     : $TARGET_BRANCH"|tee -a main.tf secrets.tf > /dev/null
+          echo "# repos ----------------"|tee -a main.tf secrets.tf > /dev/null
+          cat << EOF>>secrets.tf
+          variable "github_token" {
+            description = "Token de acesso ao GitHub"
+            type        = string
+            sensitive   = true
+            default   = "\$GITHUB_TOKEN"
+          }
+          variable "github_owner" {
+            default   = "$GITHUB_REPOSITORY_OWNER"
+            type        = string
+          }
+        EOF
+          cat << EOF>>main.tf
+          # main.tf
+          terraform {
+            required_providers {
+              github = {
+                source = "integrations/github"
+                version = "6.6.0"
+              }
+            }
+          }
+          #
+          resource "github_repository" "repo" {
+            name        = "${TARGET_REPO}"
+            description = "${var_repo_description}"
+            visibility  = "${var_repo_visibility}"
+            auto_init   = true
+          }
+        EOF
+          fi
+        #
+          [[ "$EXTRACT_IMPORT" == "true" ]] && rm -f import.tf
+          if [[ "$EXTRACT_IMPORT" == "true" && "${var_repo_full_name}" == "${GITHUB_REPOSITORY_OWNER}/${TARGET_REPO}" ]]; then
+          echo "# SOURCE_REPO: $SOURCE_REPO"|tee -a import.tf > /dev/null
+          echo "# TARGET_REPO: $TARGET_REPO"|tee -a import.tf > /dev/null
+          echo "# BRANCH     : $TARGET_BRANCH"|tee -a import.tf > /dev/null
+          echo "# repos ----------------"|tee -a import.tf > /dev/null
+          cat << EOF>>import.tf
+          import {
+            to = github_repository.repo
+            id = "${TARGET_REPO}"
+          }
+        EOF
+          fi
+        #
+          eval $(set|grep -e "^var_repo_"|cut -d"=" -f1|sed -z 's/\n/;/g;s/var_/unset var_/g')
+        done<<<$(grep -e "repo_full_name=\"${GITHUB_REPOSITORY_OWNER}/${SOURCE_REPO}\"" repos.txt && [[ "${SOURCE_REPO}" != "${TARGET_REPO}" ]] && grep -e "repo_full_name=\"${GITHUB_REPOSITORY_OWNER}/${TARGET_REPO}\"" repos.txt)
+    # 
+    - name: Terraform - Secrets
+      if: ${{ success() && ( github.event.inputs.extract_main == 'true' || github.event.inputs.extract_import == 'true' ) }} 
+      run: |
+        set +e
+        . ./functions.sh
+        cd $GITHUB_WORKSPACE/repos/$TARGET_REPO
+        while read -r secret && [[ ! -z "${secret}" ]]; do
+          eval $secret
+          if [[ "$DEBUG" == "true" ]]; then
+            set|grep "^var_sec"
+          else
+            set|grep -E "^var_sec_secrets_name"
+          fi
+        if [[ "$EXTRACT_MAIN" == "true" && "${var_repo_full_name}" == "${GITHUB_REPOSITORY_OWNER}/${SOURCE_REPO}" ]]; then
+          echo "# secrets ----------------"|tee -a main.tf secrets.tf > /dev/null
+          cat << EOF>>main.tf
+          resource "github_actions_secret" "${var_sec_secrets_name}" {
+            repository       = github_repository.repo.name
+            secret_name      = "${var_sec_secrets_name}"
+            plaintext_value  = var.${var_sec_secrets_name}
+          }
+        EOF
+          #
+          cat << EOF>>secrets.tf
+          variable "${var_sec_secrets_name}" {
+            default   = "\$${var_sec_secrets_name^^}"
+            sensitive = true
+          }
+        EOF
+        fi
+        #
+        if [[ "$EXTRACT_IMPORT" == "true" && \
+              "${var_repo_full_name}" == "${GITHUB_REPOSITORY_OWNER}/${TARGET_REPO}" && \
+              $(grep -c "resource \"github_actions_secret\" \"${var_sec_secrets_name}\"" main.tf) -gt 0 ]]; then
+          echo "# secrets ----------------"|tee -a import.tf > /dev/null
+          cat << EOF>>import.tf
+          import {
+            to = github_actions_secret.${var_sec_secrets_name}
+            id ="${TARGET_REPO}/${var_sec_secrets_name}"
+          }
+        EOF
+        fi
+          #
+          eval $(set|grep -e "^var_sec_"|cut -d"=" -f1|sed -z 's/\n/;/g;s/var_/unset var_/g')
+          eval $(set|grep -e "^var_repo_"|cut -d"=" -f1|sed -z 's/\n/;/g;s/var_/unset var_/g')
+        done<<<$(grep -e "repo_full_name=\"${GITHUB_REPOSITORY_OWNER}/${SOURCE_REPO}\"" repo_secrets.txt && [[ "${SOURCE_REPO}" != "${TARGET_REPO}" ]] && grep -e "repo_full_name=\"${GITHUB_REPOSITORY_OWNER}/${TARGET_REPO}\"" repo_secrets.txt)
+        #
+
+    - name: Terraform - Variables
+      if: ${{ success() && ( github.event.inputs.extract_main == 'true' || github.event.inputs.extract_import == 'true' ) }} 
+      run: |
+        set +e
+        . ./functions.sh
+        cd $GITHUB_WORKSPACE/repos/$TARGET_REPO
+        while read -r var && [[ ! -z "${var}" ]]; do
+          eval $var
+          if [[ "$DEBUG" == "true" ]]; then
+            set|grep "^var_var"
+          else
+            set|grep -E "^var_var_variables_name"
+          fi
+        if [[ "$EXTRACT_MAIN" == "true" && "${var_repo_full_name}" == "${GITHUB_REPOSITORY_OWNER}/${SOURCE_REPO}" ]]; then
+          echo "# variables ----------------" | tee -a main.tf > /dev/null
+          cat << EOF>>main.tf
+          resource "github_actions_variable" "${var_var_variables_name}" {
+            repository       = github_repository.repo.name
+            variable_name    = "${var_var_variables_name}"
+            value            = "${var_var_variables_value}"
+          }
+        EOF
+          fi
+        if [[ "$EXTRACT_IMPORT" == "true" && \
+              "${var_repo_full_name}" == "${GITHUB_REPOSITORY_OWNER}/${TARGET_REPO}" && \
+              $(grep -c "resource \"github_actions_variable\" \"${var_var_variables_name}\"" main.tf) -gt 0 ]]; then
+        
+          echo "# variables ----------------" | tee -a import.tf > /dev/null
+          cat << EOF>>import.tf
+          import {
+            to = github_actions_variable.${var_var_variables_name}
+            id = "${TARGET_REPO}:${var_var_variables_name}"
+          }
+        EOF
+        fi
+          eval $(set|grep -e "^var_var_"|cut -d"=" -f1|sed -z 's/\n/;/g;s/var_/unset var_/g')
+          eval $(set|grep -e "^var_repo_"|cut -d"=" -f1|sed -z 's/\n/;/g;s/var_/unset var_/g')
+        done<<<$(grep -e "repo_full_name=\"${GITHUB_REPOSITORY_OWNER}/${SOURCE_REPO}\"" repo_variables.txt && [[ "${SOURCE_REPO}" != "${TARGET_REPO}" ]] && grep -e "repo_full_name=\"${GITHUB_REPOSITORY_OWNER}/${TARGET_REPO}\"" repo_variables.txt)
+        #
+
+    # https://registry.terraform.io/providers/integrations/github/latest/docs/resources/repository_environment
+    - name: Terraform - Environments
+      if: ${{ success() && ( github.event.inputs.extract_main == 'true' || github.event.inputs.extract_import == 'true' ) }} 
+      run: |
+        set +e
+        . ./functions.sh
+        echo $0
+        cd $GITHUB_WORKSPACE/repos/$TARGET_REPO
+        while read -r env && [[ ! -z "${env}" ]]; do
+          eval $env
+          if [[ "$DEBUG" == "true" ]]; then
+            set|grep "^var_env"
+          else
+            set|grep -E "^var_env_environments_name"
+          fi
+          if [[ "$EXTRACT_MAIN" == "true" && "${var_repo_full_name}" == "${GITHUB_REPOSITORY_OWNER}/${SOURCE_REPO}" ]]; then
+            echo "# environments ----------------" | tee -a main.tf > /dev/null
+            cat << EOF>>main.tf
+            resource "github_repository_environment" "${var_env_environments_name}" {
+              environment         = "${var_env_environments_name}"
+              repository          = github_repository.repo.name
+              can_admins_bypass   = ${var_env_environments_can_admins_bypass}
+        EOF
+            if [[ "${var_env_environments_deployment_branch_policy}" != "null" ]]; then
+              echo "      deployment_branch_policy {
+                protected_branches     =${var_env_environments_deployment_branch_policy_protected_branches}
+                custom_branch_policies =${var_env_environments_deployment_branch_policy_custom_branch_policies}
+              }">> main.tf
+            fi
+
+            for n in $(seq 0 10); do
+              eval "rule_id=\${var_env_environments_protection_rules_${n}_id}"
+              eval "rule_type=\${var_env_environments_protection_rules_${n}_type}"
+              eval "rule_prevent_self_review=\${var_env_environments_protection_rules_${n}_prevent_self_review}"
+              eval "rule_wait_timer=\${var_env_environments_protection_rules_${n}_wait_timer}"
+              set|grep "^rule_"
+              echo "#-----------"
+              [[ ! -z "${rule_wait_timer}" ]] && echo "    wait_timer   = ${rule_wait_timer}">>main.tf
+              [[ ! -z "${rule_prevent_self_review}" ]] && echo "    prevent_self_review  =  ${rule_prevent_self_review}">>main.tf
+              if [[ "${rule_type}" == "required_reviewers" ]]; then
+                for i in $(seq 0 10); do
+                  [[ $i -eq 0 ]] && echo "      reviewers {">>main.tf
+                  eval "rule_reviewer_type=\${var_env_environments_protection_rules_${n}_reviewers_${i}_reviewer_type}"
+                  eval "rule_reviewer_login=\${var_env_environments_protection_rules_${n}_reviewers_${i}_reviewer_login}"
+                  eval "rule_reviewer_id=\${var_env_environments_protection_rules_${n}_reviewers_${i}_reviewer_id}"
+                  [[ ${rule_reviewer_type} == "User" ]] && rule_reviewer_user_ids="${rule_reviewer_user_ids}\"${rule_reviewer_id}\"," && rule_reviewer_user_login="${rule_reviewer_user_login}${rule_reviewer_login}," 
+                  [[ ${rule_reviewer_type} == "Team" ]] && rule_reviewer_team_ids="${rule_reviewer_team_ids}\"${rule_reviewer_id}\"," && rule_reviewer_team_login="${rule_reviewer_team_login}${rule_reviewer_login}," 
+                  if [[ -z "${rule_reviewer_type}" ]]; then
+                    set|grep "^rule_reviewer_"
+                    [[ ! -z "${rule_reviewer_user_login}" ]] && echo "# $rule_reviewer_user_login" >> main.tf && echo "      users = [ ${rule_reviewer_user_ids} ]" >> main.tf 
+                    [[ ! -z "${rule_reviewer_team_login}" ]] && echo "# $rule_reviewer_team_login" >> main.tf && echo "      teams = [ ${rule_reviewer_team_ids} ]" >> main.tf
+                    echo "      }">>main.tf
+                    break
+                  fi
+                done <<< $(set|grep "^var_env_environments_protection_rules_${n}_reviewers_")
+              fi
+              [[ -z "${rule_type}" ]] && break
+              eval $(set|grep -e "^rule_"|cut -d"=" -f1|sed -z 's/\n/;/g;s/rule_/unset rule_/g')
+            done
+            echo "}">> main.tf
+          fi
+          if [[ "$EXTRACT_IMPORT" == "true" && \
+                "${var_repo_full_name}" == "${GITHUB_REPOSITORY_OWNER}/${TARGET_REPO}" && \
+                $(grep -c "resource \"github_repository_environment\" \"${var_env_environments_name}\"" main.tf) -gt 0 ]]; then
+            echo "# environments ----------------" | tee -a import.tf > /dev/null
+            cat << EOF>>import.tf
+            import {
+              to = github_repository_environment.${var_env_environments_name}
+              id = "${TARGET_REPO}:${var_env_environments_name}"
+            }
+        EOF
+          fi
+          eval $(set|grep -e "^var_env_"|cut -d"=" -f1|sed -z 's/\n/;/g;s/var_/unset var_/g')
+          eval $(set|grep -e "^var_repo_"|cut -d"=" -f1|sed -z 's/\n/;/g;s/var_/unset var_/g')
+        done<<<$(grep -e "repo_full_name=\"${GITHUB_REPOSITORY_OWNER}/${SOURCE_REPO}\"" repo_environments.txt && [[ "${SOURCE_REPO}" != "${TARGET_REPO}" ]] && grep -e "repo_full_name=\"${GITHUB_REPOSITORY_OWNER}/${TARGET_REPO}\"" repo_environments.txt )
+        #
+        
+    - name: Terraform - Env Variables
+      if: ${{ success() && ( github.event.inputs.extract_main == 'true' || github.event.inputs.extract_import == 'true' ) }} 
+      run: |
+        set +e
+        . ./functions.sh
+        cd $GITHUB_WORKSPACE/repos/$TARGET_REPO
+        while read -r env_var && [[ ! -z "${env_var}" ]]; do
+          eval $env_var
+          if [[ "$DEBUG" == "true" ]]; then
+            set|grep "^var_env"
+          else
+            set|grep -E "^var_env_environments_name|^var_env_var_variables_name"|tr -d '\n'; echo ""
+          fi
+        if [[ "$EXTRACT_MAIN" == "true" && "${var_repo_full_name}" == "${GITHUB_REPOSITORY_OWNER}/${SOURCE_REPO}" ]]; then
+          echo "# env_variables ----------------" | tee -a main.tf > /dev/null
+          cat << EOF>>main.tf
+          resource "github_actions_environment_variable" "${var_env_environments_name}_${var_env_var_variables_name}" {
+            repository        = github_repository.repo.name
+            environment       = "${var_env_environments_name}"
+            variable_name     = "${var_env_var_variables_name}"
+            value             = "${var_env_var_variables_value}"
+            depends_on        = [github_repository_environment.${var_env_environments_name}]
+          }
+        EOF
+        fi
+        if [[ "$EXTRACT_IMPORT" == "true" && \
+              "${var_repo_full_name}" == "${GITHUB_REPOSITORY_OWNER}/${TARGET_REPO}" && \
+              $(grep -c "resource \"github_actions_environment_variable\" \"${var_env_environments_name}_${var_env_var_variables_name}\"" main.tf) -gt 0 ]]; then
+          echo "# env_variables ----------------" | tee -a import.tf > /dev/null
+          cat << EOF>>import.tf
+          import {
+            to = github_actions_environment_variable.${var_env_environments_name}_${var_env_var_variables_name}
+            id = "${TARGET_REPO}:${var_env_environments_name}:${var_env_var_variables_name}"
+          }
+        EOF
+        fi
+          eval $(set|grep -e "^var_env_"|cut -d"=" -f1|sed -z 's/\n/;/g;s/var_/unset var_/g')
+          eval $(set|grep -e "^var_repo_"|cut -d"=" -f1|sed -z 's/\n/;/g;s/var_/unset var_/g')
+        done<<<$(grep -e "repo_full_name=\"${GITHUB_REPOSITORY_OWNER}/${SOURCE_REPO}\"" env_variables.txt && [[ "${SOURCE_REPO}" != "${TARGET_REPO}" ]] && grep -e "repo_full_name=\"${GITHUB_REPOSITORY_OWNER}/${TARGET_REPO}\"" env_variables.txt)
+        #
+
+    # https://registry.terraform.io/providers/integrations/github/latest/docs/resources/actions_environment_secret
+    - name: Terraform - Env Secrets
+      if: ${{ success() && ( github.event.inputs.extract_main == 'true' || github.event.inputs.extract_import == 'true' ) }} 
+      run: |
+        set +e
+        . ./functions.sh
+        cd $GITHUB_WORKSPACE/repos/$TARGET_REPO
+        while read -r env_sec && [[ ! -z "${env_sec}" ]]; do
+          eval $env_sec
+          if [[ "$DEBUG" == "true" ]]; then
+            set|grep "^var_env"
+          else
+            set|grep -E "^var_env_environments_name|^var_env_sec_secrets_name"|tr -d '\n'; echo ""
+          fi
+        if [[ "$EXTRACT_MAIN" == "true" && "${var_repo_full_name}" == "${GITHUB_REPOSITORY_OWNER}/${SOURCE_REPO}" ]]; then
+          echo "# env_secrets ----------------" | tee -a secrets.tf main.tf > /dev/null
+          cat << EOF>>main.tf
+          resource "github_actions_environment_secret" "${var_env_environments_name}_${var_env_sec_secrets_name}" {
+            repository        = github_repository.repo.name
+            environment       = "${var_env_environments_name}"
+            secret_name       = "${var_env_sec_secrets_name}"
+            plaintext_value   = var.${var_env_environments_name}_${var_env_sec_secrets_name}
+            depends_on        = [github_repository_environment.${var_env_environments_name}]
+          }
+        EOF
+          cat << EOF>>secrets.tf
+          variable "${var_env_environments_name}_${var_env_sec_secrets_name}" {
+            default   = "\$${var_env_environments_name^^}_${var_env_sec_secrets_name^^}"
+            sensitive = true
+          }
+        EOF
+          fi
+        #NAO POSSUI IMPORT
+          eval $(set|grep -e "^var_env_"|cut -d"=" -f1|sed -z 's/\n/;/g;s/var_/unset var_/g')
+          eval $(set|grep -e "^var_repo_"|cut -d"=" -f1|sed -z 's/\n/;/g;s/var_/unset var_/g')
+        done<<<$(grep -e "repo_full_name=\"${GITHUB_REPOSITORY_OWNER}/${SOURCE_REPO}\"" env_secrets.txt && [[ "${SOURCE_REPO}" != "${TARGET_REPO}" ]] && grep -e "repo_full_name=\"${GITHUB_REPOSITORY_OWNER}/${TARGET_REPO}\"" env_secrets.txt)
+        #
+    - name: Terraform - Branches
+      if: ${{ success() && ( github.event.inputs.extract_main == 'true' || github.event.inputs.extract_import == 'true' ) }} 
+      run: |
+        set +e
+        . ./functions.sh
+        cd $GITHUB_WORKSPACE/repos/$TARGET_REPO
+        while read -r branch && [[ ! -z "${branch}" ]]; do
+          eval $branch
+          if [[ "$DEBUG" == "true" ]]; then
+            set|grep "^var_branch_"
+          else
+            set|grep -E "^var_branch_name"
+          fi
+        if [[ "$EXTRACT_MAIN" == "true" && "${var_repo_full_name}" == "${GITHUB_REPOSITORY_OWNER}/${SOURCE_REPO}" ]]; then
+          echo "# branches ----------------" | tee -a main.tf  > /dev/null
+          cat << EOF>>main.tf
+            resource "github_branch" "${TARGET_REPO}_${var_branch_name//\//-}" {
+            repository = github_repository.repo.name
+            branch     = "${var_branch_name}"
+            }
+        EOF
+          fi
+        if [[ "$EXTRACT_IMPORT" == "true" && \
+              "${var_repo_full_name}" == "${GITHUB_REPOSITORY_OWNER}/${TARGET_REPO}" && \
+              $(grep -c "resource \"github_branch\" \"${TARGET_REPO}_${var_branch_name//\//-}\"" main.tf) -gt 0 ]]; then
+          echo "# branches ----------------" | tee -a import.tf  > /dev/null
+          cat << EOF>>import.tf
+          import {
+            to = github_branch.${TARGET_REPO}_${var_branch_name//\//-}
+            id = "${TARGET_REPO}:${var_branch_name}"
+          }
+        EOF
+        fi
+          eval $(set|grep -e "^var_branch_"|cut -d"=" -f1|sed -z 's/\n/;/g;s/var_/unset var_/g')
+          eval $(set|grep -e "^var_repo_"|cut -d"=" -f1|sed -z 's/\n/;/g;s/var_/unset var_/g')
+        done<<<$(grep -e "repo_full_name=\"${GITHUB_REPOSITORY_OWNER}/${SOURCE_REPO}\"" repo_branches.txt && [[ "${SOURCE_REPO}" != "${TARGET_REPO}" ]] && grep -e "repo_full_name=\"${GITHUB_REPOSITORY_OWNER}/${TARGET_REPO}\"" repo_branches.txt)
+
+    - name: Terraform - Branch Protection
+      if: ${{ success() && ( github.event.inputs.extract_main == 'true' || github.event.inputs.extract_import == 'true' ) }} 
+      run: |
+        set +e
+        . ./functions.sh
+        cd $GITHUB_WORKSPACE/repos/$TARGET_REPO
+        while read -r branch && [[ ! -z "${branch}" ]]; do
+          eval $branch
+          if [[ "$DEBUG" == "true" ]]; then
+            set|grep -E "^var_repo_full_name|^var_branch_"
+          else
+            set|grep -E "^var_repo_full_name|^var_branch_name"
+          fi
+        if [[ "$EXTRACT_MAIN" == "true" && "${var_repo_full_name}" == "${GITHUB_REPOSITORY_OWNER}/${SOURCE_REPO}" && -z "${var_branch_protection_error}" ]]; then
+          echo "# branch protection ----------------" | tee -a main.tf  > /dev/null
+          cat << EOF>>main.tf
+          resource "github_branch_protection_v3" "${var_branch_name//\//-}" {
+            repository         = github_repository.repo.name
+            branch             = "${var_branch_name}"
+            # allows_deletions   = ${var_branch_protection_allow_deletions_enabled}
+            enforce_admins     = ${var_branch_protection_enforce_admins_enabled}
+            # lock_branch        = ${var_branch_protection_lock_branch_enabled}
+            require_conversation_resolution = ${var_branch_protection_required_conversation_resolution_enabled}
+            # required_linear_history         = ${var_branch_protection_required_linear_history_enabled}
+        EOF
+            if [[ $(set|grep -c -e "^var_branch_protection_required_status_checks_") -gt 0 ]]; then
+              echo "    required_status_checks {" >> main.tf
+              [[ ! -z "${var_branch_protection_required_status_checks_strict}" ]] && echo "      strict   = ${var_branch_protection_required_status_checks_strict}" >> main.tf 
+              echo "    }" >> main.tf
+            fi
+            if [[ $(set|grep -c -e "^var_branch_protection_required_pull_request_reviews_") -gt 0 ]]; then
+              echo "    required_pull_request_reviews {" >> main.tf
+              [[ ! -z "${var_branch_protection_required_pull_request_reviews_dismiss_stale_reviews}" ]] && echo "      dismiss_stale_reviews   = ${var_branch_protection_required_pull_request_reviews_dismiss_stale_reviews}" >> main.tf
+              [[ ! -z "${var_branch_protection_required_pull_request_reviews_require_code_owner_reviews}" ]] && echo "      require_code_owner_reviews   = ${var_branch_protection_required_pull_request_reviews_require_code_owner_reviews}" >> main.tf
+              [[ ! -z "${var_branch_protection_required_pull_request_reviews_required_approving_review_count}" ]] && echo "      required_approving_review_count   = ${var_branch_protection_required_pull_request_reviews_required_approving_review_count}" >> main.tf
+              [[ ! -z "${var_branch_protection_required_pull_request_reviews_require_last_push_approval}" ]] && echo "      require_last_push_approval   = ${var_branch_protection_required_pull_request_reviews_require_last_push_approval}" >> main.tf
+              #
+              if [[ ! -z "${var_branch_protection_required_pull_request_reviews_dismissal_restrictions_users_0_login}" || ! -z "${var_branch_protection_required_pull_request_reviews_dismissal_restrictions_teams_0_login}" ]]; then
+                for n in $(seq 0 10); do
+                  eval "branch_protection_required_pull_request_reviews_dismissal_restrictions_users_login=\${var_branch_protection_required_pull_request_reviews_dismissal_restrictions_users_${n}_login}"
+                  eval "branch_protection_required_pull_request_reviews_dismissal_restrictions_teams_login=\${var_branch_protection_required_pull_request_reviews_dismissal_restrictions_teams_${n}_login}"
+                  [[ ! -z "${branch_protection_required_pull_request_reviews_dismissal_restrictions_users_login}" ]] && branch_protection_required_pull_request_reviews_dismissal_restrictions_users_list="${branch_protection_required_pull_request_reviews_dismissal_restrictions_users_list}\"${branch_protection_required_pull_request_reviews_dismissal_restrictions_users_login}\","
+                  [[ ! -z "${branch_protection_required_pull_request_reviews_dismissal_restrictions_teams_login}" ]] && branch_protection_required_pull_request_reviews_dismissal_restrictions_teams_list="${branch_protection_required_pull_request_reviews_dismissal_restrictions_teams_list}\"${branch_protection_required_pull_request_reviews_dismissal_restrictions_users_login}\","
+                done
+                [[ ! -z "${branch_protection_required_pull_request_reviews_dismissal_restrictions_users_list}" ]] && echo "      dismissal_users = [ ${branch_protection_required_pull_request_reviews_dismissal_restrictions_users_list} ]" >> main.tf
+                [[ ! -z "${branch_protection_required_pull_request_reviews_dismissal_restrictions_teams_list}" ]] && echo "      dismissal_teams = [ ${branch_protection_required_pull_request_reviews_dismissal_restrictions_teams_list} ]" >> main.tf
+              fi
+              #
+              if [[ ! -z "${var_branch_protection_required_pull_request_reviews_bypass_pull_request_allowances_users_0_login}" || ! -z "${var_branch_protection_required_pull_request_reviews_bypass_pull_request_allowances_teams_0_login}" ]]; then
+                for n in $(seq 0 10); do
+                  eval "branch_protection_required_pull_request_reviews_bypass_pull_request_allowances_users_login=\${var_branch_protection_required_pull_request_reviews_bypass_pull_request_allowances_users_${n}_login}"
+                  eval "branch_protection_required_pull_request_reviews_bypass_pull_request_allowances_teams_login=\${var_branch_protection_required_pull_request_reviews_bypass_pull_request_allowances_teams_${n}_login}"
+                  [[ ! -z "${branch_protection_required_pull_request_reviews_bypass_pull_request_allowances_users_login}" ]] && branch_protection_required_pull_request_reviews_bypass_pull_request_allowances_users_list="${branch_protection_required_pull_request_reviews_bypass_pull_request_allowances_users_list}\"${branch_protection_required_pull_request_reviews_bypass_pull_request_allowances_users_login}\","
+                  [[ ! -z "${branch_protection_required_pull_request_reviews_bypass_pull_request_allowances_teams_login}" ]] && branch_protection_required_pull_request_reviews_bypass_pull_request_allowances_teams_list="${branch_protection_required_pull_request_reviews_bypass_pull_request_allowances_teams_list}\"${branch_protection_required_pull_request_reviews_bypass_pull_request_allowances_teams_login}\","
+                done
+                if [[ ! -z "${branch_protection_required_pull_request_reviews_bypass_pull_request_allowances_users_list}" || ! -z "${branch_protection_required_pull_request_reviews_bypass_pull_request_allowances_teams_list}" ]]; then
+                  echo "      bypass_pull_request_allowances {" >> main.tf
+                  [[ ! -z "${branch_protection_required_pull_request_reviews_bypass_pull_request_allowances_users_list}" ]] && echo "        users = [ ${branch_protection_required_pull_request_reviews_bypass_pull_request_allowances_users_list} ]" >> main.tf
+                  [[ ! -z "${branch_protection_required_pull_request_reviews_bypass_pull_request_allowances_teams_list}" ]] && echo "        teams = [ ${branch_protection_required_pull_request_reviews_bypass_pull_request_allowances_teams_list} ]" >> main.tf
+                  echo "      }" >> main.tf
+                fi
+              fi
+              echo "    }" >> main.tf
+            fi
+
+            if [[ ! -z "${var_branch_protection_restrictions_users_0_login}" || ! -z "${var_branch_protection_restrictions_users_0_teams}" ]]; then
+              echo "    restrictions {" >> main.tf
+              for n in $(seq 0 10); do
+                eval "branch_protection_restrictions_users_login=\${var_branch_protection_restrictions_users_${n}_login}"
+                eval "branch_protection_restrictions_teams_login=\${var_branch_protection_restrictions_teams_${n}_login}"
+                [[ ! -z "${branch_protection_restrictions_users_login}" ]] && branch_protection_restrictions_users_list="${branch_protection_restrictions_users_list}\"${branch_protection_restrictions_users_login}\","
+                [[ ! -z "${branch_protection_restrictions_teams_login}" ]] && branch_protection_restrictions_teams_list="${branch_protection_restrictions_teams_list}\"${branch_protection_restrictions_teams_login}\","
+              done
+              [[ ! -z "${branch_protection_restrictions_users_list}" ]] && echo "      users = [ ${branch_protection_restrictions_users_list} ]" >> main.tf
+              [[ ! -z "${branch_protection_restrictions_teams_list}" ]] && echo "      teams = [ ${branch_protection_restrictions_teams_list} ]" >> main.tf
+              echo "    }">>main.tf
+            fi
+          echo "  }">>main.tf
+        fi
+        if [[ "$EXTRACT_IMPORT" == "true" && \
+              "${var_repo_full_name}" == "${GITHUB_REPOSITORY_OWNER}/${TARGET_REPO}" && \
+              -z "${var_branch_protection_error}" && \
+              $(grep -c "resource \"github_branch_protection\" \"${var_branch_name//\//-}\"" main.tf) -gt 0 ]]; then
+          echo "# branches ----------------" | tee -a import.tf  > /dev/null
+          cat << EOF>>import.tf
+          import {
+            to = github_branch_protection.${var_branch_name//\//-}
+            id = "${TARGET_REPO}:${var_branch_name}"
+          }
+        EOF
+        fi
+          eval $(set|grep -e "^var_branch_"|cut -d"=" -f1|sed -z 's/\n/;/g;s/var_/unset var_/g')
+          eval $(set|grep -e "^var_repo_"|cut -d"=" -f1|sed -z 's/\n/;/g;s/var_/unset var_/g')
+        done<<<$(grep -e "repo_full_name=\"${GITHUB_REPOSITORY_OWNER}/${SOURCE_REPO}\"" branch_protection.txt && [[ "${SOURCE_REPO}" != "${TARGET_REPO}" ]] && grep -e "repo_full_name=\"${GITHUB_REPOSITORY_OWNER}/${TARGET_REPO}\"" branch_protection.txt)
+
+    - name: Prepara secrets
+      if: ${{ success() }}
+      run: |
+        set +e
+        cd $GITHUB_WORKSPACE/repos/$TARGET_REPO
+        pwd
+        #prepara secrets
+        cp secrets.tf secrets.tf.bkp
+        envsubst < secrets.tf.bkp > secrets.tf
+        if [[ "$DEBUG" == "true" ]]; then
+          find . -type f -exec bash -c 'ls -latr "$1" | tr -d "\n"; echo -n " "; wc -l < "$1"' _ {} \;
+          echo "secrets.tf --------------------"
+          cat secrets.tf
+        fi
+
+    - name: Terraform INIT/PLAN
+      if: ${{ success() && github.event.inputs.plan_terraform == 'true' }}
+      run: |
+        set +e
+        . ./functions.sh
+        cd $GITHUB_WORKSPACE/repos/$TARGET_REPO
+        #terraform providers
+        #terraform validate
+        if [[ -f main.tf ]]; then
+          echo "# terraform init ----------------------------------" 
+          terraform init
+          echo "# terraform plan ----------------------------------" 
+          terraform plan
+        else
+          echo "Nao foi encontrado o arquivo main.tf"
+          exit 1
+        fi
+    
+    - name: Terraform APPLY
+      if: ${{ success() && github.event.inputs.apply_terraform == 'true' }}
+      run: |
+        set +e
+        . ./functions.sh
+        cd $GITHUB_WORKSPACE/repos/$TARGET_REPO
+        pwd
+        if [[ -f main.tf ]]; then
+          terraform apply -auto-approve
+        else
+          echo "Nao foi encontrado o arquivo main.tf"
+          exit 1
+        fi
+
+    - name: Remove Secrets
+      if: ${{ always() }}
+      run: |
+        set +e
+        cd $GITHUB_WORKSPACE/repos/$TARGET_REPO
+        cp secrets.tf.bkp secrets.tf
+
+    - name: Upload arquivos .txt e .tsv
+      if: ${{ always() }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: arquivos
+        path: |
+          ${{ github.workspace }}/repos/${{ github.event.inputs.target_repo || github.event.inputs.source_repo }}/*.txt
+          ${{ github.workspace }}/repos/${{ github.event.inputs.target_repo || github.event.inputs.source_repo }}/*.tsv
+          ${{ github.workspace }}/repos/${{ github.event.inputs.target_repo || github.event.inputs.source_repo }}/*.tf
+
+    - name: Limpa arquivos
+      if: ${{ always() }}
+      run: |
+        set +e
+        cd $GITHUB_WORKSPACE/repos/$TARGET_REPO
+        if [[ "$DEBUG" == "true" ]]; then
+          echo --------------------------
+          find . -type f -exec bash -c 'ls -latr "$1" | tr -d "\n"; echo -n " "; wc -l < "$1"' _ {} \;
+        fi
+        rm -f *.bkp
+        rm -f *.txt
+        rm -f *.tsv
+        rm -f *.tfstate
+        rm -f *.tfvars
+        rm -f *.json
+        rm -rf .terraform
+        rm -f .terraform.lock.hcl
+        if [[ "$DEBUG" == "true" ]]; then
+          echo --------------------------
+          find . -type f -exec bash -c 'ls -latr "$1" | tr -d "\n"; echo -n " "; wc -l < "$1"' _ {} \;
+        fi
+    - name: Retorna Alterações no GIT
+      if: ${{ success() }}
+      run: |
+        set +e
+        #curl -k -L -s -H "Authorization: token ${{ secrets.SEC_GITHUB_TOKEN }}" https://api.github.com/repos/${{ github.repository }}
+        git config --local --unset-all http.https://github.com/.extraheader
+        git config user.name "GitHub Actions Bot"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git remote set-url origin "https://x-access-token:${{ secrets.SEC_GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+        git add .
+        git diff --cached --quiet || git commit -m "Atualizacao automatica via GitHub Actions"
+        git push origin HEAD
+
+    - name: Clona repositorio
+      if: ${{ success() && github.event.inputs.clone_repo == 'true' &&  github.event.inputs.target_repo != github.event.inputs.source_repo }}
+      run: |
+        set +e
+        . ./functions.sh
+        cd $GITHUB_WORKSPACE/repos/$TARGET_REPO
+        pwd
+        if [[ -z "${TARGET_REPO_FULL}" ]]; then
+          echo "Repositorio destino ${TARGET_REPO} é novo. Executando clone mirror"
+          mkdir _tmp
+          cd _tmp
+          git clone --mirror https://${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY_OWNER}/${SOURCE_REPO}
+          cd ${SOURCE_REPO}.git
+          git remote set-url origin https://${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY_OWNER}/${TARGET_REPO}
+          git push --mirror https://${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY_OWNER}/${TARGET_REPO}
+          cd ..
+          rm -rf _tmp
+          exit 0
+        else
+          echo "Clone nao realizado. O repositorio de destino já existe ${TARGET_REPO}"
+          exit 1
+        fi
+  
