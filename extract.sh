@@ -58,29 +58,35 @@ else
     echo "$result"|grep -E "^var_user_login"
 fi
 
+if [[ ${repo_source_owner_type} == "User" ]]; then
+    export GITHUB_REPOSITORY_TYPE="users"
+else
+    export GITHUB_REPOSITORY_TYPE="orgs"
+fi
+
 #extrai lista de repositorios usando api do github
-echo "$(date '+%Y%m%d %H:%M:%S') extraindo repos -----------------------------------------------"
-github_api "repo" "https://api.github.com/orgs/${GITHUB_REPOSITORY_OWNER}/repos"|grep -E "${REPOSITORIO}">repos.txt &
+echo "$(date '+%Y%m%d %H:%M:%S') Extraindo repos -----------------------------------------------"
+github_api "repo" "https://api.github.com/${GITHUB_REPOSITORY_TYPE}/${GITHUB_REPOSITORY_OWNER}/repos"|grep -E "${REPOSITORIO}">repos.txt &
 
 # if [[ ! -z "$REPOSITORIO" ]]; then
 #     { github_api "repo" "https://api.github.com/repos/${GITHUB_REPOSITORY_OWNER}/${REPOSITORIO}"|tr '\n' '\t' ; echo ""; }>repos.txt &
 # else
-#     github_api "repo" "https://api.github.com/orgs/${GITHUB_REPOSITORY_OWNER}/repos">repos.txt &
+#     github_api "repo" "https://api.github.com/${GITHUB_REPOSITORY_TYPE}/${GITHUB_REPOSITORY_OWNER}/repos">repos.txt &
 # fi
 if [[ "${EXTRACAO_GLOBAL}" == "true" ]]; then
     echo "$(date '+%Y%m%d %H:%M:%S') extraindo dados globais -----------------------------------------------"
     if [[ $(grep -c 'var_repo_status="' repos.txt) -gt 0 ]]; then echo "ERROR!";cat repos.txt;exit;fi
-    github_api "team" "https://api.github.com/orgs/${GITHUB_REPOSITORY_OWNER}/teams">teams.txt &
-    github_api "outside_collaborator" "https://api.github.com/orgs/${GITHUB_REPOSITORY_OWNER}/outside_collaborators">outside_collaborators.txt &
-    github_api "hook" "https://api.github.com/orgs/${GITHUB_REPOSITORY_OWNER}/hooks"|grep -v "var_hook_error=">hooks.txt &
-    github_api "alert" "https://api.github.com/orgs/${GITHUB_REPOSITORY_OWNER}/dependabot/alerts">alerts.txt &
-    github_api "member" "https://api.github.com/orgs/${GITHUB_REPOSITORY_OWNER}/members">members.txt &
-    github_api "ruleset" "https://api.github.com/orgs/${GITHUB_REPOSITORY_OWNER}/rulesets">rulesets.txt &
-    github_api "secret" "https://api.github.com/orgs/${GITHUB_REPOSITORY_OWNER}/actions/secrets">secrets.txt &
-    github_api "variable" "https://api.github.com/orgs/${GITHUB_REPOSITORY_OWNER}/actions/variables">variables.txt &
-    github_api "permission" "https://api.github.com/orgs/${GITHUB_REPOSITORY_OWNER}/actions/permissions">permissions.txt &
-    github_api "alert" "https://api.github.com/orgs/${GITHUB_REPOSITORY_OWNER}/code-scanning/alerts">alerts.txt &
-    github_api "security-advisory" "https://api.github.com/orgs/${GITHUB_REPOSITORY_OWNER}/security-advisories">security-advisories.txt &
+    github_api "team" "https://api.github.com/${GITHUB_REPOSITORY_TYPE}/${GITHUB_REPOSITORY_OWNER}/teams">teams.txt &
+    github_api "outside_collaborator" "https://api.github.com/${GITHUB_REPOSITORY_TYPE}/${GITHUB_REPOSITORY_OWNER}/outside_collaborators">outside_collaborators.txt &
+    github_api "hook" "https://api.github.com/${GITHUB_REPOSITORY_TYPE}/${GITHUB_REPOSITORY_OWNER}/hooks"|grep -v "var_hook_error=">hooks.txt &
+    github_api "alert" "https://api.github.com/${GITHUB_REPOSITORY_TYPE}/${GITHUB_REPOSITORY_OWNER}/dependabot/alerts">alerts.txt &
+    github_api "member" "https://api.github.com/${GITHUB_REPOSITORY_TYPE}/${GITHUB_REPOSITORY_OWNER}/members">members.txt &
+    github_api "ruleset" "https://api.github.com/${GITHUB_REPOSITORY_TYPE}/${GITHUB_REPOSITORY_OWNER}/rulesets">rulesets.txt &
+    github_api "secret" "https://api.github.com/${GITHUB_REPOSITORY_TYPE}/${GITHUB_REPOSITORY_OWNER}/actions/secrets">secrets.txt &
+    github_api "variable" "https://api.github.com/${GITHUB_REPOSITORY_TYPE}/${GITHUB_REPOSITORY_OWNER}/actions/variables">variables.txt &
+    github_api "permission" "https://api.github.com/${GITHUB_REPOSITORY_TYPE}/${GITHUB_REPOSITORY_OWNER}/actions/permissions">permissions.txt &
+    github_api "alert" "https://api.github.com/${GITHUB_REPOSITORY_TYPE}/${GITHUB_REPOSITORY_OWNER}/code-scanning/alerts">alerts.txt &
+    github_api "security-advisory" "https://api.github.com/${GITHUB_REPOSITORY_TYPE}/${GITHUB_REPOSITORY_OWNER}/security-advisories">security-advisories.txt &
 fi
 wait
 #
