@@ -255,7 +255,7 @@ jobs:
           resource "github_actions_secret" "${var_sec_secrets_name}" {
             repository       = github_repository.repo.name
             secret_name      = "${var_sec_secrets_name}"
-            plaintext_value  = var.${var_sec_secrets_name}
+            value            = var.${var_sec_secrets_name}
           }
         EOF
           #
@@ -463,7 +463,7 @@ jobs:
             repository        = github_repository.repo.name
             environment       = "${var_env_environments_name}"
             secret_name       = "${var_env_sec_secrets_name}"
-            plaintext_value   = var.${var_env_environments_name}_${var_env_sec_secrets_name}
+            value             = var.${var_env_environments_name}_${var_env_sec_secrets_name}
             depends_on        = [github_repository_environment.${var_env_environments_name}]
           }
         EOF
