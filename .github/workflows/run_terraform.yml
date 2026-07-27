@@ -64,6 +64,7 @@ jobs:
       # defina as secrets neste projeto e aqui para propagar na execucao dos scripts 
       GITHUB_TOKEN: ${{ secrets.SEC_GITHUB_TOKEN }}
       GITHUB_OWNER: ${{ github.repository_owner }}
+      TERRAFORM_VERSION: ${{ variables.TERRAFORM_VERSION }}
       NEXUS_USER: ${{ secrets.NEXUS_USER }}
       NEXUS_PASS: ${{ secrets.NEXUS_PASS }}
 
@@ -204,7 +205,7 @@ jobs:
             required_providers {
               github = {
                 source = "integrations/github"
-                version = "6.13.0"
+                version = "$TERRAFORM_VERSION"
               }
             }
           }
