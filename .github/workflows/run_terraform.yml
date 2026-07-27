@@ -47,7 +47,8 @@ on:
 
 jobs:
   run_terraform:
-    runs-on: [ self-hosted, dev ]
+    # runs-on: [ self-hosted, dev ]
+    runs-on: ubuntu-latest
     env:
       ACTIONS_RUNNER_DEBUG: ${{ github.event.inputs.debug }}
       ACTIONS_STEP_DEBUG: ${{ github.event.inputs.debug }}
