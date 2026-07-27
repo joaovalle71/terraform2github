@@ -52,13 +52,12 @@ if [[ $(echo "$result"|grep -c "var_repo_error=") -gt 0 ]]; then
     echo "$result"
     exit 1
 fi
+
 if [[ "$DEBUG" == "true" ]]; then
     echo "$result"
-    echo "GITHUB_REPOSITORY_TYPE=${repo_source_owner_type}"
 else
     echo "$result"|grep -E "^var_user_login"
 fi
-
 
 if [[ "${repo_source_owner_type}" == "User" ]]; then
     export GITHUB_REPOSITORY_TYPE="users"
