@@ -171,7 +171,11 @@ jobs:
           if [[ -z "$var_repo_full_name" ]]; then
             echo "Repositorio ${SOURCE_REPO} nao encontrado"
             echo "conteudo do arquivo de repositorios"
-            cat repos.txt
+            if [[ -f repos.txt ]]; then
+              cat repos.txt
+            else
+              echo "repos.txt nao encontrado"
+            fi
             exit 1
           fi
           #
@@ -617,7 +621,11 @@ jobs:
         if [[ "$DEBUG" == "true" ]]; then
           find . -type f -exec bash -c 'ls -latr "$1" | tr -d "\n"; echo -n " "; wc -l < "$1"' _ {} \;
           echo "secrets.tf --------------------"
-          cat secrets.tf
+          if [[ -f secrets.tf ]]; then
+            cat secrets.tf
+          else
+            echo "Nao foi encontrado o arquivo secrets.tf"
+          fi
         fi
 
     - name: Terraform INIT/PLAN
