@@ -274,7 +274,7 @@ jobs:
           cat << EOF>>import.tf
           import {
             to = github_actions_secret.${var_sec_secrets_name}
-            id ="${TARGET_REPO}/${var_sec_secrets_name}"
+            id ="${TARGET_REPO}:${var_sec_secrets_name}"
           }
         EOF
         fi
