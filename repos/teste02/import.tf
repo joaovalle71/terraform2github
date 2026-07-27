@@ -11,6 +11,11 @@
     to = github_actions_secret.SEC_GITHUB_TOKEN
     id ="teste02:SEC_GITHUB_TOKEN"
   }
+# variables ----------------
+  import {
+    to = github_actions_variable.TERRAFORM_VERSION
+    id = "teste02:TERRAFORM_VERSION"
+  }
 # branches ----------------
   import {
     to = github_branch.teste02_main

@@ -22,7 +22,7 @@
   resource "github_actions_secret" "SEC_GITHUB_TOKEN" {
     repository       = github_repository.repo.name
     secret_name      = "SEC_GITHUB_TOKEN"
-    plaintext_value  = var.SEC_GITHUB_TOKEN
+    value            = var.SEC_GITHUB_TOKEN
   }
 # variables ----------------
   resource "github_actions_variable" "TERRAFORM_VERSION" {
