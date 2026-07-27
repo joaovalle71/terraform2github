@@ -7,7 +7,7 @@
     required_providers {
       github = {
         source = "integrations/github"
-        version = "6.6.0"
+        version = "6.13.0"
       }
     }
   }
@@ -23,6 +23,12 @@
     repository       = github_repository.repo.name
     secret_name      = "SEC_GITHUB_TOKEN"
     plaintext_value  = var.SEC_GITHUB_TOKEN
+  }
+# variables ----------------
+  resource "github_actions_variable" "TERRAFORM_VERSION" {
+    repository       = github_repository.repo.name
+    variable_name    = "TERRAFORM_VERSION"
+    value            = "6.13.0"
   }
 # branches ----------------
     resource "github_branch" "teste02_main" {
