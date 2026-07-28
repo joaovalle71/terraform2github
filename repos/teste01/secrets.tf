@@ -1,9 +1,9 @@
 # SOURCE_REPO: terraform2github
 # TARGET_REPO: teste01
-# BRANCH     : main
+# BRANCH     : dev/translate
 # repos ----------------
   variable "github_token" {
-    description = "Token de acesso ao GitHub"
+    description = "GitHub access token"
     type        = string
     sensitive   = true
     default   = "$GITHUB_TOKEN"
