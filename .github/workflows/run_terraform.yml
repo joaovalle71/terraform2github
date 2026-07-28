@@ -180,7 +180,7 @@ jobs:
         set +e
         . ./functions.sh
         cd $GITHUB_WORKSPACE/repos/$TARGET_REPO
-        while read -r repo && [[ ! -z "${repo}" ]]; do
+        [[ -f repos.txt ]] && while read -r repo && [[ ! -z "${repo}" ]]; do
           eval $repo
           if [[ "$DEBUG" == "true" ]]; then
             set|grep "^var_repo_"
@@ -191,12 +191,6 @@ jobs:
           #
           if [[ -z "$var_repo_full_name" ]]; then
             echo "Repository ${SOURCE_REPO} was not found"
-            echo "Contents of the repositories file"
-            if [[ -f repos.txt ]]; then
-              cat repos.txt
-            else
-              echo "repos.txt was not found"
-            fi
             exit 1
           fi
           #
@@ -261,7 +255,7 @@ jobs:
         set +e
         . ./functions.sh
         cd $GITHUB_WORKSPACE/repos/$TARGET_REPO
-        while read -r secret && [[ ! -z "${secret}" ]]; do
+        [[ -f repo_secrets.txt ]] && while read -r secret && [[ ! -z "${secret}" ]]; do
           eval $secret
           if [[ "$DEBUG" == "true" ]]; then
             set|grep "^var_sec_"
@@ -310,7 +304,7 @@ jobs:
         set +e
         . ./functions.sh
         cd $GITHUB_WORKSPACE/repos/$TARGET_REPO
-        while read -r var && [[ ! -z "${var}" ]]; do
+        [[ -f repo_variables.txt ]] && while read -r var && [[ ! -z "${var}" ]]; do
           eval $var
           if [[ "$DEBUG" == "true" ]]; then
             set|grep "^var_var_"
@@ -353,7 +347,7 @@ jobs:
         . ./functions.sh
         echo $0
         cd $GITHUB_WORKSPACE/repos/$TARGET_REPO
-        while read -r env && [[ ! -z "${env}" ]]; do
+        [[ -f repo_environments.txt ]] && while read -r env && [[ ! -z "${env}" ]]; do
           eval $env
           if [[ "$DEBUG" == "true" ]]; then
             set|grep "^var_env_"
@@ -429,7 +423,7 @@ jobs:
         set +e
         . ./functions.sh
         cd $GITHUB_WORKSPACE/repos/$TARGET_REPO
-        while read -r env_var && [[ ! -z "${env_var}" ]]; do
+        [[ -f env_variables.txt ]] && while read -r env_var && [[ ! -z "${env_var}" ]]; do
           eval $env_var
           if [[ "$DEBUG" == "true" ]]; then
             set|grep "^var_env_var_"
@@ -472,7 +466,7 @@ jobs:
         set +e
         . ./functions.sh
         cd $GITHUB_WORKSPACE/repos/$TARGET_REPO
-        while read -r env_sec && [[ ! -z "${env_sec}" ]]; do
+        [[ -f env_secrets.txt ]] && while read -r env_sec && [[ ! -z "${env_sec}" ]]; do
           eval $env_sec
           if [[ "$DEBUG" == "true" ]]; then
             set|grep "^var_env_sec_"
@@ -509,7 +503,7 @@ jobs:
         set +e
         . ./functions.sh
         cd $GITHUB_WORKSPACE/repos/$TARGET_REPO
-        while read -r branch && [[ ! -z "${branch}" ]]; do
+        [[ -f repo_branches.txt ]] && while read -r branch && [[ ! -z "${branch}" ]]; do
           eval $branch
           if [[ "$DEBUG" == "true" ]]; then
             set|grep "^var_branch_"
@@ -547,7 +541,7 @@ jobs:
         set +e
         . ./functions.sh
         cd $GITHUB_WORKSPACE/repos/$TARGET_REPO
-        while read -r branch && [[ ! -z "${branch}" ]]; do
+        [[ -f branch_protection.txt ]] && while read -r branch && [[ ! -z "${branch}" ]]; do
           eval $branch
           if [[ "$DEBUG" == "true" ]]; then
             set|grep -E "^var_repo_full_name|^var_branch_"
@@ -663,7 +657,7 @@ jobs:
         . ./functions.sh
         cd $GITHUB_WORKSPACE/repos/$TARGET_REPO
         #terraform providers
-        #terraform validate
+        terraform validate
         if [[ -f main.tf ]]; then
           echo "# terraform init ----------------------------------" && \ 
           terraform init
@@ -681,7 +675,6 @@ jobs:
         set +e
         . ./functions.sh
         cd $GITHUB_WORKSPACE/repos/$TARGET_REPO
-        pwd
         if [[ -f main.tf ]]; then
           terraform apply -auto-approve
         else
