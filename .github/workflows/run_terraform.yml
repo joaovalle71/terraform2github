@@ -180,7 +180,7 @@ jobs:
         set +e
         . ./functions.sh
         cd $GITHUB_WORKSPACE/repos/$TARGET_REPO
-        [[ -f repos.txt ]] && while read -r repo && [[ ! -z "${repo}" ]]; do
+        while read -r repo && [[ ! -z "${repo}" ]]; do
           eval $repo
           if [[ "$DEBUG" == "true" ]]; then
             set|grep "^var_repo_"
@@ -255,7 +255,7 @@ jobs:
         set +e
         . ./functions.sh
         cd $GITHUB_WORKSPACE/repos/$TARGET_REPO
-        [[ -f repo_secrets.txt ]] && while read -r secret && [[ ! -z "${secret}" ]]; do
+        while read -r secret && [[ ! -z "${secret}" ]]; do
           eval $secret
           if [[ "$DEBUG" == "true" ]]; then
             set|grep "^var_sec_"
@@ -304,7 +304,7 @@ jobs:
         set +e
         . ./functions.sh
         cd $GITHUB_WORKSPACE/repos/$TARGET_REPO
-        [[ -f repo_variables.txt ]] && while read -r var && [[ ! -z "${var}" ]]; do
+        while read -r var && [[ ! -z "${var}" ]]; do
           eval $var
           if [[ "$DEBUG" == "true" ]]; then
             set|grep "^var_var_"
@@ -347,7 +347,7 @@ jobs:
         . ./functions.sh
         echo $0
         cd $GITHUB_WORKSPACE/repos/$TARGET_REPO
-        [[ -f repo_environments.txt ]] && while read -r env && [[ ! -z "${env}" ]]; do
+        while read -r env && [[ ! -z "${env}" ]]; do
           eval $env
           if [[ "$DEBUG" == "true" ]]; then
             set|grep "^var_env_"
@@ -423,7 +423,7 @@ jobs:
         set +e
         . ./functions.sh
         cd $GITHUB_WORKSPACE/repos/$TARGET_REPO
-        [[ -f env_variables.txt ]] && while read -r env_var && [[ ! -z "${env_var}" ]]; do
+        while read -r env_var && [[ ! -z "${env_var}" ]]; do
           eval $env_var
           if [[ "$DEBUG" == "true" ]]; then
             set|grep "^var_env_var_"
@@ -431,29 +431,29 @@ jobs:
           else
             set|grep -E "^var_env_environments_name|^var_env_var_variables_name"|tr -d '\n'; echo ""
           fi
-        if [[ "$EXTRACT_MAIN" == "true" && "${var_repo_full_name}" == "${GITHUB_REPOSITORY_OWNER}/${SOURCE_REPO}" ]]; then
-          echo "# env_variables ----------------" | tee -a main.tf > /dev/null
-          cat << EOF>>main.tf
-          resource "github_actions_environment_variable" "${var_env_environments_name}_${var_env_var_variables_name}" {
-            repository        = github_repository.repo.name
-            environment       = "${var_env_environments_name}"
-            variable_name     = "${var_env_var_variables_name}"
-            value             = "${var_env_var_variables_value}"
-            depends_on        = [github_repository_environment.${var_env_environments_name}]
-          }
+          if [[ "$EXTRACT_MAIN" == "true" && "${var_repo_full_name}" == "${GITHUB_REPOSITORY_OWNER}/${SOURCE_REPO}" ]]; then
+            echo "# env_variables ----------------" | tee -a main.tf > /dev/null
+            cat << EOF>>main.tf
+            resource "github_actions_environment_variable" "${var_env_environments_name}_${var_env_var_variables_name}" {
+              repository        = github_repository.repo.name
+              environment       = "${var_env_environments_name}"
+              variable_name     = "${var_env_var_variables_name}"
+              value             = "${var_env_var_variables_value}"
+              depends_on        = [github_repository_environment.${var_env_environments_name}]
+            }
         EOF
-        fi
-        if [[ "$EXTRACT_IMPORT" == "true" && \
-              "${var_repo_full_name}" == "${GITHUB_REPOSITORY_OWNER}/${TARGET_REPO}" && \
-              $(grep -c "resource \"github_actions_environment_variable\" \"${var_env_environments_name}_${var_env_var_variables_name}\"" main.tf) -gt 0 ]]; then
-          echo "# env_variables ----------------" | tee -a import.tf > /dev/null
-          cat << EOF>>import.tf
-          import {
-            to = github_actions_environment_variable.${var_env_environments_name}_${var_env_var_variables_name}
-            id = "${TARGET_REPO}:${var_env_environments_name}:${var_env_var_variables_name}"
-          }
+          fi
+          if [[ "$EXTRACT_IMPORT" == "true" && \
+                "${var_repo_full_name}" == "${GITHUB_REPOSITORY_OWNER}/${TARGET_REPO}" && \
+                $(grep -c "resource \"github_actions_environment_variable\" \"${var_env_environments_name}_${var_env_var_variables_name}\"" main.tf) -gt 0 ]]; then
+            echo "# env_variables ----------------" | tee -a import.tf > /dev/null
+            cat << EOF>>import.tf
+            import {
+              to = github_actions_environment_variable.${var_env_environments_name}_${var_env_var_variables_name}
+              id = "${TARGET_REPO}:${var_env_environments_name}:${var_env_var_variables_name}"
+            }
         EOF
-        fi
+          fi
           eval $(set|grep -e "^var_env_"|cut -d"=" -f1|sed -z 's/\n/;/g;s/var_/unset var_/g')
           eval $(set|grep -e "^var_repo_"|cut -d"=" -f1|sed -z 's/\n/;/g;s/var_/unset var_/g')
         done<<<$(grep -e "repo_full_name=\"${GITHUB_REPOSITORY_OWNER}/${SOURCE_REPO}\"" env_variables.txt && [[ "${SOURCE_REPO}" != "${TARGET_REPO}" ]] && grep -e "repo_full_name=\"${GITHUB_REPOSITORY_OWNER}/${TARGET_REPO}\"" env_variables.txt||true)
@@ -466,7 +466,7 @@ jobs:
         set +e
         . ./functions.sh
         cd $GITHUB_WORKSPACE/repos/$TARGET_REPO
-        [[ -f env_secrets.txt ]] && while read -r env_sec && [[ ! -z "${env_sec}" ]]; do
+        while read -r env_sec && [[ ! -z "${env_sec}" ]]; do
           eval $env_sec
           if [[ "$DEBUG" == "true" ]]; then
             set|grep "^var_env_sec_"
@@ -495,7 +495,7 @@ jobs:
         #NO IMPORT AVAILABLE
           eval $(set|grep -e "^var_env_"|cut -d"=" -f1|sed -z 's/\n/;/g;s/var_/unset var_/g')
           eval $(set|grep -e "^var_repo_"|cut -d"=" -f1|sed -z 's/\n/;/g;s/var_/unset var_/g')
-        done<<<$(grep -e "repo_full_name=\"${GITHUB_REPOSITORY_OWNER}/${SOURCE_REPO}\"" env_secrets.txt && [[ "${SOURCE_REPO}" != "${TARGET_REPO}" ]] && grep -e "repo_full_name=\"${GITHUB_REPOSITORY_OWNER}/${TARGET_REPO}\"" env_secrets.txt)
+        done<<<$(grep -e "repo_full_name=\"${GITHUB_REPOSITORY_OWNER}/${SOURCE_REPO}\"" env_secrets.txt && [[ "${SOURCE_REPO}" != "${TARGET_REPO}" ]] && grep -e "repo_full_name=\"${GITHUB_REPOSITORY_OWNER}/${TARGET_REPO}\"" env_secrets.txt||true)
         #
     - name: Terraform - Branches
       if: ${{ success() && ( github.event.inputs.extract_main == 'true' || github.event.inputs.extract_import == 'true' ) }} 
@@ -503,7 +503,7 @@ jobs:
         set +e
         . ./functions.sh
         cd $GITHUB_WORKSPACE/repos/$TARGET_REPO
-        [[ -f repo_branches.txt ]] && while read -r branch && [[ ! -z "${branch}" ]]; do
+        while read -r branch && [[ ! -z "${branch}" ]]; do
           eval $branch
           if [[ "$DEBUG" == "true" ]]; then
             set|grep "^var_branch_"
@@ -541,7 +541,7 @@ jobs:
         set +e
         . ./functions.sh
         cd $GITHUB_WORKSPACE/repos/$TARGET_REPO
-        [[ -f branch_protection.txt ]] && while read -r branch && [[ ! -z "${branch}" ]]; do
+        while read -r branch && [[ ! -z "${branch}" ]]; do
           eval $branch
           if [[ "$DEBUG" == "true" ]]; then
             set|grep -E "^var_repo_full_name|^var_branch_"
