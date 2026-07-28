@@ -1,6 +1,6 @@
 # SOURCE_REPO: terraform2github
 # TARGET_REPO: teste02
-# BRANCH     : main
+# BRANCH     : dev/translate
 # repos ----------------
   # main.tf
   terraform {
@@ -30,6 +30,11 @@
     variable_name    = "TERRAFORM_VERSION"
     value            = "6.13.0"
   }
+# branches ----------------
+    resource "github_branch" "teste02_dev-translate" {
+    repository = github_repository.repo.name
+    branch     = "dev/translate"
+    }
 # branches ----------------
     resource "github_branch" "teste02_main" {
     repository = github_repository.repo.name
