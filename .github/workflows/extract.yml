@@ -1,19 +1,19 @@
-name: Extrator de dados do GitHub
+name: Github Data Extractopr
 
 on:
-  workflow_dispatch:  # Permite execução manual
+  workflow_dispatch:  # manual execution
     inputs:
       repositorio:
-        description: 'Nome do repositório (deixe vazio para todos)'
+        description: 'Repository Name (let empty for all repos)'
         required: false
         default: ''
       extracao_global: 
-        description: 'Extrai variaveis globais (independente de repos)?'
+        description: 'Extract global data (independs of repos)?'
         required: true
         type: boolean
         default: false
       txt2tsv:
-        description: 'Converte .txt em .tsv?'
+        description: 'Converts .txt em .tsv?'
         required: true
         type: boolean
         default: true
@@ -25,7 +25,8 @@ on:
 
 jobs:
   extract:
-    runs-on: self-hosted
+    runs-on: ${{ vars.VAR_GITHUB_AGENT }}
+
     env:
       DEBUG: ${{ github.event.inputs.debug }}
       ACTIONS_RUNNER_DEBUG: ${{ github.event.inputs.debug }}
@@ -36,12 +37,13 @@ jobs:
       REPOSITORIO: ${{ github.event.inputs.repositorio }}
       EXTRACAO_GLOBAL: ${{ github.event.inputs.extracao_global }}
       TXT2TSV: ${{ github.event.inputs.txt2tsv }}
+      GITHUB_AGENT: ${{ vars.VAR_GITHUB_AGENT }}
 
     steps:
-    - name: Checkout do código
+    - name: Code checkout
       uses: actions/checkout@v4
       
-    - name: Exibe variaveis de ambiente
+    - name: Show environment variables
       if: success()
       run: |
         for var in $(compgen -e); do
@@ -51,7 +53,7 @@ jobs:
     - name: Extract
       run: chmod +x ./extract.sh && ./extract.sh
 
-    - name: Upload arquivos .txt e .tsv
+    - name: Upload files .txt e .tsv
       uses: actions/upload-artifact@v4
       with:
         name: arquivos

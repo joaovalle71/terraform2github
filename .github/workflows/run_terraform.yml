@@ -52,10 +52,7 @@ on:
 
 jobs:
   run_terraform:
-    # internal runner
-    # runs-on: [ self-hosted, dev ]
-    # or github runner
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.VAR_GITHUB_AGENT }}
     env:
       # Required variables/secrets that must be defined in your repo
       # You need an admin token to create and manage repositories
@@ -81,6 +78,7 @@ jobs:
       REGISTRY_URL: ${{ secrets.REGISTRY_URL }}
       REGISTRY_USER: ${{ secrets.REGISTRY_USER }}
       REGISTRY_PASS: ${{ secrets.REGISTRY_PASS }}
+      GITHUB_AGENT: ${{ vars.VAR_GITHUB_AGENT }}
 
     steps:
     
