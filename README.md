@@ -1,9 +1,9 @@
 # terraform4github
 ## Allows extracting, synchronizing, and cloning GitHub repository rules using Terraform
 ### Note
-* These pipelines allow you to clone GitHub structures, rules, and configurations. For repository content (source code) clone it uses "git clone --mirror".
+* These pipelines allow you to clone GitHub structures, rules, and configurations. For repository contents clone it uses "git clone --mirror".
 * This script covers the cloning of the following configurations:
-  - Repository
+  - Repository (and optionally the contents)
   - Variables per repository
   - Secrets per repository
   - Environments
