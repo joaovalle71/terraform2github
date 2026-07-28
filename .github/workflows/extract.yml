@@ -8,7 +8,7 @@ on:
         required: false
         default: ''
       extracao_global: 
-        description: 'Extract global data (independs of repos)?'
+        description: 'Extract global data?'
         required: true
         type: boolean
         default: false
@@ -53,10 +53,10 @@ jobs:
     - name: Extract
       run: chmod +x ./extract.sh && ./extract.sh
 
-    - name: Upload files .txt e .tsv
+    - name: Upload files .txt and .tsv
       uses: actions/upload-artifact@v4
       with:
-        name: arquivos
+        name: files
         path: |
           *.txt
           *.tsv

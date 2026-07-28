@@ -44,19 +44,15 @@ rm -f *.txt*
 # See limits at https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api
 #
 if [[ "$DEBUG" == "true" ]]; then
-    echo "$(date '+%Y%m%d %H:%M:%S') rates -----------------------------------------------"
+    echo "$(date '+%Y%m%d %H:%M:%S') Show Rate Limits -----------------------------------------------"
     github_api "rate" "https://api.github.com/rate_limit"
 fi
-echo "$(date '+%Y%m%d %H:%M:%S') current user -----------------------------------------------"
+echo "$(date '+%Y%m%d %H:%M:%S') Show Current User -----------------------------------------------"
 result="$(github_api "user" "https://api.github.com/user")"
 if [[ $(echo "$result"|grep -c "var_repo_error=") -gt 0 ]]; then
     echo "$result"
     exit 1
-fi
-
-if [[ "$DEBUG" == "true" ]]; then
-    echo "$result"
-else
+else 
     echo "$result"|grep -E "^var_user_login"
 fi
 
@@ -67,7 +63,7 @@ else
 fi
 
 # extracts list of repositories using the github api
-echo "$(date '+%Y%m%d %H:%M:%S') Extracting repos -----------------------------------------------"
+echo "$(date '+%Y%m%d %H:%M:%S') Extracting repos data -----------------------------------------------"
 github_api "repo" "https://api.github.com/${GITHUB_REPOSITORY_TYPE}/${GITHUB_REPOSITORY_OWNER}/repos"|grep -E "${REPOSITORY}">repos.txt &
 
 if [[ "${GLOBAL_EXTRACTION}" == "true" ]]; then
@@ -90,7 +86,7 @@ wait
 #
 # loop to extract data from repositories
 echo "$(date '+%Y%m%d %H:%M:%S') Extracting data associated with each repo -------------------------------------------"
-while read -r repo && [[ ! -z $repo ]]; do
+[[ -f repos.txt ]] && while read -r repo && [[ ! -z $repo ]]; do
   eval $repo
   if [[ "$DEBUG" == "true" ]]; then echo "$var_repo_full_name"; fi
   github_api "env" "https://api.github.com/repos/${var_repo_full_name}/environments"|sed "s|^|var_repo_full_name=\"${var_repo_full_name}\";\t|">repo_environments.txt.$! &
@@ -140,7 +136,7 @@ done<<<$(find . -maxdepth 1 -type f -regex ".*\.txt\..*[0-9]"|cut -d'.' -f1|sort
 wait
 #
 echo "$(date '+%Y%m%d %H:%M:%S') Extracting data from environments -------------------------"
-while read -r env && [[ ! -z $env ]]; do
+[[ -f repo_environments.txt ]] && while read -r env && [[ ! -z $env ]]; do
   eval $env
   if [[ "$DEBUG" == "true" ]]; then echo "$var_repo_full_name;$var_env_environments_name"; fi
   github_api "env_rule" "https://api.github.com/repos/${var_repo_full_name}/environments/${var_env_environments_name}/deployment_protection_rules"|sed "s|^|var_repo_full_name=\"${var_repo_full_name}\";\tvar_env_environments_name=\"${var_env_environments_name}\";\t|">env_rules.txt.$! &
@@ -155,7 +151,7 @@ wait
 find . -maxdepth 1 -type f -regex ".*\.txt\..*[0-9]" -exec bash -c 'cat {}>>$(echo {}|sed "s/\.txt\.[^\.txt\.]*$/.txt/");rm {}' \;
 #
 echo "$(date '+%Y%m%d %H:%M:%S') Extracting rulesets from repos -------------------------"
-while read -r repo_ruleset && [[ ! -z $repo_ruleset ]]; do
+[[ -f repo_rulesets.txt ]] && while read -r repo_ruleset && [[ ! -z $repo_ruleset ]]; do
     eval $repo_ruleset
     if [[ "$DEBUG" == "true" ]]; then echo "$var_repo_full_name;$var_ruleset_name"; fi
     if [[ ! -z "${var_ruleset_name}" ]]; then
@@ -169,7 +165,7 @@ wait
 find . -maxdepth 1 -type f -regex ".*\.txt\..*[0-9]" -exec bash -c 'cat {}>>$(echo {}|sed "s/\.txt\.[^\.txt\.]*$/.txt/");rm {}' \;
 #
 echo "$(date '+%Y%m%d %H:%M:%S') Extracting branch protection from repos ----------------------"
-while read -r branch && [[ ! -z $branch ]] ; do
+[[ -f repo_branches.txt ]] && while read -r branch && [[ ! -z $branch ]] ; do
   eval $branch
   if [[ "$DEBUG" == "true" ]]; then echo "$var_repo_full_name;$var_branch_name"; fi
   { github_api "branch_protection" "https://api.github.com/repos/${var_repo_full_name}/branches/${var_branch_name}/protection" list|tr -d '\n'|sed "s|^|var_repo_full_name=\"${var_repo_full_name}\";\tvar_branch_name=\"${var_branch_name}\";\t|";echo ""; }>branch_protection.txt.$! &
