@@ -456,7 +456,7 @@ jobs:
         fi
           eval $(set|grep -e "^var_env_"|cut -d"=" -f1|sed -z 's/\n/;/g;s/var_/unset var_/g')
           eval $(set|grep -e "^var_repo_"|cut -d"=" -f1|sed -z 's/\n/;/g;s/var_/unset var_/g')
-        done<<<$(grep -e "repo_full_name=\"${GITHUB_REPOSITORY_OWNER}/${SOURCE_REPO}\"" env_variables.txt && [[ "${SOURCE_REPO}" != "${TARGET_REPO}" ]] && grep -e "repo_full_name=\"${GITHUB_REPOSITORY_OWNER}/${TARGET_REPO}\"" env_variables.txt)
+        done<<<$(grep -e "repo_full_name=\"${GITHUB_REPOSITORY_OWNER}/${SOURCE_REPO}\"" env_variables.txt && [[ "${SOURCE_REPO}" != "${TARGET_REPO}" ]] && grep -e "repo_full_name=\"${GITHUB_REPOSITORY_OWNER}/${TARGET_REPO}\"" env_variables.txt||true)
         #
 
     # https://registry.terraform.io/providers/integrations/github/latest/docs/resources/actions_environment_secret
