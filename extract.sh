@@ -192,5 +192,4 @@ if [[ "${TXT2TSV}" == "true" ]]; then
 fi
 #
 echo "$(date '+%Y%m%d %H:%M:%S') Execution completed ----------------------------------------------"
-# list files
-find . -maxdepth 1 -type f -regex ".*\.txt" -exec wc -l {} \;
+

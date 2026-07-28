@@ -164,10 +164,6 @@ jobs:
       run: |
         set +e
         . ./functions.sh
-        echo $PATH
-        which gawk
-        # pwd
-        # ls -latr $GITHUB_WORKSPACE
         chmod +x $GITHUB_WORKSPACE/extract.sh
         mkdir -p $GITHUB_WORKSPACE/repos/$TARGET_REPO
         cd $GITHUB_WORKSPACE/repos/$TARGET_REPO

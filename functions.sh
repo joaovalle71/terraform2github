@@ -1,5 +1,5 @@
-#this function transform json file to a variable="value" structure that can be loaded in bash using eval
-#requires jq
+# this function transform json file to a variable="value" structure that can be loaded in bash using eval
+# requires jq
 format_json2(){
   jq -r --arg prefix "${1}" --arg bk "${2}" '
     def x: . | to_entries[] |
@@ -14,11 +14,11 @@ format_json2(){
   '
 }
 
-#this function aggregate lines returned by format_json to use in loops
-#example
-#cat file.json|format_json "var" "\n;"|agg
+# this function aggregate lines returned by format_json to use in loops
+# example
+# cat file.json|format_json "var" "\n;"|agg
 agg() {
-awk 'BEGIN {
+gawk 'BEGIN {
 		str1="_1_"
     }
 	{
@@ -45,7 +45,7 @@ awk 'BEGIN {
 	}'|grep -vE '^[[:space:]]*$'
 }
 
-#this function converts input txt to tsv
+# this function converts input txt to tsv
 txt2tsv() {
 	gawk '
 	BEGIN {
@@ -144,7 +144,7 @@ github_api() {
 	rm -f $tmpfile
 }
 
-#function to install tools in $HOME/bin of agent runner 
+# function to install tools in $HOME/bin of agent runner 
 install_tools() {
 	echo "Install tools"
 	# create and configure path to install tools
