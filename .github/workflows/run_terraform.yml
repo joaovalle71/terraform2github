@@ -35,7 +35,7 @@ on:
         type: boolean
         default: false
       clone_repo:
-        description: 'Clona conteudo para destino NOVO apenas?'
+        description: 'Clona conteudo para destino NOVO?'
         required: true
         type: boolean
         default: false        
