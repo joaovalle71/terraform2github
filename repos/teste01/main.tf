@@ -30,6 +30,12 @@
     variable_name    = "TERRAFORM_VERSION"
     value            = "6.13.0"
   }
+# variables ----------------
+  resource "github_actions_variable" "VAR_GITHUB_AGENT" {
+    repository       = github_repository.repo.name
+    variable_name    = "VAR_GITHUB_AGENT"
+    value            = "ubuntu-latest"
+  }
 # branches ----------------
     resource "github_branch" "teste01_dev-translate" {
     repository = github_repository.repo.name
