@@ -156,8 +156,15 @@ jobs:
         set +e
         . ./functions.sh
         eval "${SOURCE_REPO_FULL}"
+        eval "${TARGET_REPO_FULL}"
 
         chmod +x $GITHUB_WORKSPACE/extract.sh
+        if [[ -e "$GITHUB_WORKSPACE/repos/$TARGET_REPO" ]] && [[ -z "${repo_target_name}" ]]; then
+          echo "Target Repo Folder exists but repository does not exists."
+          echo "Remove repository folder repos/$TARGET_REPO or tfstate before continue..."
+          exit 1
+        fi
+
         mkdir -p $GITHUB_WORKSPACE/repos/$TARGET_REPO
         cd $GITHUB_WORKSPACE/repos/$TARGET_REPO
 
