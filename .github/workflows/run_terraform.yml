@@ -111,7 +111,7 @@ jobs:
             -H "X-GitHub-Api-Version: 2022-11-28" \
             "https://api.github.com/repos/${GITHUB_REPOSITORY_OWNER}/${TARGET_REPO}" |format_json2 "repo_target" ";$(echo -e "\t")"|tr -d '\n')
           eval "${TARGET_REPO_FULL}"
-          propagate_repo_vars "repo_target"
+
           if [[ "$DEBUG" == "true" ]]; then
             set|grep "^repo_target_"
           else
@@ -126,7 +126,7 @@ jobs:
           -H "X-GitHub-Api-Version: 2022-11-28" \
           "https://api.github.com/repos/${GITHUB_REPOSITORY_OWNER}/${SOURCE_REPO}" |format_json2 "repo_source" ";$(echo -e "\t")"|tr -d '\n')
           eval "${SOURCE_REPO_FULL}"
-          propagate_repo_vars "repo_source"
+
         if [[ "$DEBUG" == "true" ]]; then
           set|grep "^repo_source_"
         else
@@ -155,10 +155,12 @@ jobs:
       run: |
         set +e
         . ./functions.sh
+        eval "${SOURCE_REPO_FULL}"
+
         chmod +x $GITHUB_WORKSPACE/extract.sh
         mkdir -p $GITHUB_WORKSPACE/repos/$TARGET_REPO
         cd $GITHUB_WORKSPACE/repos/$TARGET_REPO
-        pwd
+
         if [[ "$EXTRACT_MAIN" == "true" || "$EXTRACT_IMPORT" == "true" ]]; then
           echo "Running extraction"
           $GITHUB_WORKSPACE/extract.sh false true "repo_name=\"$SOURCE_REPO\"|repo_name=\"$TARGET_REPO\""
