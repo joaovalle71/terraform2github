@@ -102,7 +102,6 @@ jobs:
       run: |
         set +e
         . ./functions.sh
-
         if [[ "${SOURCE_REPO}" != "${TARGET_REPO}" ]]; then
           echo -e "------------------------------\nCheck whether the DESTINATION repository ${TARGET_REPO} exists"
           TARGET_REPO_FULL=$(curl -k -s -L \
@@ -184,7 +183,8 @@ jobs:
         while read -r repo && [[ ! -z "${repo}" ]]; do
           eval $repo
           if [[ "$DEBUG" == "true" ]]; then
-            set|grep "^var_repo"
+            set|grep "^var_repo_"
+            echo "------------------------------"
           else
             set|grep -E "^var_repo_full_name"
           fi
@@ -264,7 +264,8 @@ jobs:
         while read -r secret && [[ ! -z "${secret}" ]]; do
           eval $secret
           if [[ "$DEBUG" == "true" ]]; then
-            set|grep "^var_sec"
+            set|grep "^var_sec_"
+            echo "------------------------------"
           else
             set|grep -E "^var_sec_secrets_name"
           fi
@@ -312,7 +313,8 @@ jobs:
         while read -r var && [[ ! -z "${var}" ]]; do
           eval $var
           if [[ "$DEBUG" == "true" ]]; then
-            set|grep "^var_var"
+            set|grep "^var_var_"
+            echo "------------------------------"
           else
             set|grep -E "^var_var_variables_name"
           fi
@@ -354,7 +356,8 @@ jobs:
         while read -r env && [[ ! -z "${env}" ]]; do
           eval $env
           if [[ "$DEBUG" == "true" ]]; then
-            set|grep "^var_env"
+            set|grep "^var_env_"
+            echo "------------------------------"
           else
             set|grep -E "^var_env_environments_name"
           fi
@@ -429,7 +432,8 @@ jobs:
         while read -r env_var && [[ ! -z "${env_var}" ]]; do
           eval $env_var
           if [[ "$DEBUG" == "true" ]]; then
-            set|grep "^var_env"
+            set|grep "^var_env_var_"
+            echo "------------------------------"
           else
             set|grep -E "^var_env_environments_name|^var_env_var_variables_name"|tr -d '\n'; echo ""
           fi
@@ -471,7 +475,8 @@ jobs:
         while read -r env_sec && [[ ! -z "${env_sec}" ]]; do
           eval $env_sec
           if [[ "$DEBUG" == "true" ]]; then
-            set|grep "^var_env"
+            set|grep "^var_env_sec_"
+            echo "------------------------------"
           else
             set|grep -E "^var_env_environments_name|^var_env_sec_secrets_name"|tr -d '\n'; echo ""
           fi
@@ -508,6 +513,7 @@ jobs:
           eval $branch
           if [[ "$DEBUG" == "true" ]]; then
             set|grep "^var_branch_"
+            echo "------------------------------"
           else
             set|grep -E "^var_branch_name"
           fi
@@ -545,6 +551,7 @@ jobs:
           eval $branch
           if [[ "$DEBUG" == "true" ]]; then
             set|grep -E "^var_repo_full_name|^var_branch_"
+            echo "------------------------------"
           else
             set|grep -E "^var_repo_full_name|^var_branch_name"
           fi
@@ -658,9 +665,10 @@ jobs:
         #terraform providers
         #terraform validate
         if [[ -f main.tf ]]; then
-          echo "# terraform init ----------------------------------" 
+          echo "# terraform init ----------------------------------" && \ 
           terraform init
-          echo "# terraform plan ----------------------------------" 
+          [[ $? -eq 0 ]] && \
+          echo "# terraform plan ----------------------------------" && \
           terraform plan
         else
           echo "main.tf file was not found"
