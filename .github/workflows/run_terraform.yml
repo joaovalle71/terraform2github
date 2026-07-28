@@ -159,9 +159,9 @@ jobs:
         eval "${TARGET_REPO_FULL}"
 
         chmod +x $GITHUB_WORKSPACE/extract.sh
-        if [[ -e "$GITHUB_WORKSPACE/repos/$TARGET_REPO" ]] && [[ -z "${repo_target_name}" ]]; then
+        if [[ -e "$GITHUB_WORKSPACE/repos/$TARGET_REPO" ]] && [[ -z "${repo_target_name}" ]] && [[ "$EXTRACT_IMPORT" == "true" ]]; then
           echo "Target Repo Folder exists but repository does not exists."
-          echo "Remove repository folder repos/$TARGET_REPO or tfstate before continue..."
+          echo "Remove repository folder repos/$TARGET_REPO or disable Import option before continue..."
           exit 1
         fi
 
