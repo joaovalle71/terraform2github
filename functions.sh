@@ -152,24 +152,26 @@ install_tools() {
  	if [[ -z $install_dir ]]; then install_dir=$HOME/bin; fi
 	if [[ ! -d $install_dir ]]; then mkdir $install_dir; fi
 	if ! [[ "$PATH" =~ "$install_dir:" ]]; then
-	     	export PATH="$install_dir:$PATH"
-      		if [[ ! -z $GITHUB_PATH ]]; then echo "$install_dir" >> $GITHUB_PATH; fi
+	   	export PATH="$install_dir:$PATH"
+    	if [[ ! -z $GITHUB_PATH ]]; then echo "$install_dir" >> $GITHUB_PATH; fi
 	fi
  	echo "PATH=$PATH"
 	# install yq if it does not exist
     # https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
 	echo "------------------------"
 	if ! which yq; then
-	  yq_version="4.53.3"
+      yq_version="4.53.3"
+	  echo "Installing yq ${yq_version}"
 	  curl -fsSL -o $install_dir/yq https://github.com/mikefarah/yq/releases/download/v${yq_version}/yq_darwin_amd64 && \
 	  chmod +x $install_dir/yq
-  fi
+	fi
 	yq --version
 	# install jq if it does not exist
     # https://github.com/jqlang/jq/releases
 	echo "------------------------"
 	if ! which jq; then
-	  jq_version="1.7.1"
+	  jq_version="1.8.2"
+	  echo "Installing jq ${jq_version}"
 	  curl -fsSL -o $install_dir/jq https://github.com/jqlang/jq/releases/download/jq-${jq_version}/jq-linux-amd64 && \
 	  chmod +x $install_dir/jq
 	fi
@@ -179,6 +181,7 @@ install_tools() {
 	echo "------------------------"
 	if ! which terraform; then
 	  terraform_version="1.15.8"
+	  echo "Installing terraform ${terraform_version}"
 	  curl -fsSL https://releases.hashicorp.com/terraform/${terraform_version}/terraform_${terraform_version}_linux_amd64.zip -o $install_dir/terraform.zip && \
 	  unzip -o -q $install_dir/terraform.zip -d $install_dir && \
 	  rm -f $install_dir/terraform.zip && \
