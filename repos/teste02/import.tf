@@ -1,6 +1,6 @@
 # SOURCE_REPO: terraform2github
 # TARGET_REPO: teste02
-# BRANCH     : main
+# BRANCH     : dev/translate
 # repos ----------------
   import {
     to = github_repository.repo
