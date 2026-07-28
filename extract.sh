@@ -17,6 +17,10 @@ fi
 # ls -latr
 # whoami
 
+# Load repository environment variables
+eval "${SOURCE_REPO_FULL}"
+eval "${TARGET_REPO_FULL}"
+
 # PARAMETERS
 if [[ ! -z $1 ]]; then
     GLOBAL_EXTRACTION=$1
