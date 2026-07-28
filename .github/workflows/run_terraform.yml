@@ -65,8 +65,8 @@ jobs:
       GITHUB_TOKEN: ${{ secrets.SEC_GITHUB_TOKEN }}
       GITHUB_OWNER: ${{ github.repository_owner }}
       TERRAFORM_VERSION: ${{ vars.TERRAFORM_VERSION }}
-      NEXUS_USER: ${{ secrets.NEXUS_USER }}
-      NEXUS_PASS: ${{ secrets.NEXUS_PASS }}
+      REGISTRY_USER: ${{ secrets.REGISTRY_USER }}
+      REGISTRY_PASS: ${{ secrets.REGISTRY_PASS }}
 
     steps:
     
@@ -110,7 +110,7 @@ jobs:
           -H "Accept: application/vnd.github+json" \
           -H "Authorization: Bearer ${GITHUB_TOKEN}" \
           -H "X-GitHub-Api-Version: 2022-11-28" \
-          "https://api.github.com/repos/${GITHUB_REPOSITORY_OWNER}/${SOURCE_REPO}" |format_json2 "repo_source" ";$(echo -e "\t")"|sed 's/^/export /'|tr -d '\n')
+          "https://api.github.com/repos/${GITHUB_REPOSITORY_OWNER}/${SOURCE_REPO}" |format_json2 "repo_source" ";$(echo -e "\t")"|tr -d '\n')
           eval "${SOURCE_REPO_FULL}"
           echo "repo_source_owner_type=$repo_source_owner_type">>"$GITHUB_ENV"
         if [[ "$DEBUG" == "true" ]]; then
