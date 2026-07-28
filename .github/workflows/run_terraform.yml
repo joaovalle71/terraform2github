@@ -1,6 +1,11 @@
-# Extract data from GitHub via the REST API and generate Terraform scripts that allow:
+# Extract data from GitHub using REST API and generate Terraform scripts that allow:
 # 1 - extract, import, modify, and reapply the configuration of an existing repository through Terraform
-# 2 - read the settings of an "origin" repository and apply them via Terraform to a "destination" repository (create a new one or update it)
+# 2 - read the settings of an "origin" repository and apply them with Terraform to a "destination" repository (create a new one or update it)
+#
+# References
+# https://docs.github.com/en/rest
+# https://registry.terraform.io/providers/integrations/github/latest/docs/resources
+#
 name: Terraform script
 
 on:
@@ -35,7 +40,7 @@ on:
         type: boolean
         default: false
       clone_repo:
-        description: 'Clone content to a NEW destination?'
+        description: 'Clone Repo contents to NEW destination?'
         required: true
         type: boolean
         default: false        
@@ -47,9 +52,18 @@ on:
 
 jobs:
   run_terraform:
+    # internal runner
     # runs-on: [ self-hosted, dev ]
+    # or github runner
     runs-on: ubuntu-latest
     env:
+      # Required variables/secrets that must be defined in your repo
+      # You need an admin token to create and manage repositories
+      GITHUB_TOKEN: ${{ secrets.SEC_GITHUB_TOKEN }}
+      # must define the TERRAFORM_VERSION variable in your repo or organization variables
+      TERRAFORM_VERSION: ${{ vars.TERRAFORM_VERSION }}
+      #
+      # variables from workflow_dispatch inputs
       ACTIONS_RUNNER_DEBUG: ${{ github.event.inputs.debug }}
       ACTIONS_STEP_DEBUG: ${{ github.event.inputs.debug }}
       ACTIONS_RUNNER_HTTPTRACE: ${{ github.event.inputs.debug }}
@@ -60,11 +74,11 @@ jobs:
       TARGET_REPO: ${{ github.event.inputs.target_repo || github.event.inputs.source_repo }}
       EXTRACT_MAIN: ${{ github.event.inputs.extract_main }}
       EXTRACT_IMPORT: ${{ github.event.inputs.extract_import }}
-      # secrets.tf to inject into Terraform scripts --------------------------------------
-      # define the secrets in this project and here to propagate their execution into the scripts
-      GITHUB_TOKEN: ${{ secrets.SEC_GITHUB_TOKEN }}
       GITHUB_OWNER: ${{ github.repository_owner }}
-      TERRAFORM_VERSION: ${{ vars.TERRAFORM_VERSION }}
+      # secrets.tf to inject into Terraform scripts --------------------------------------
+      # define the secrets on repo config and on this project (below) to execute in secure way into inject secrets
+      # example, you can use custom registry or GitHub Container Registry to store your private docker images
+      REGISTRY_URL: ${{ secrets.REGISTRY_URL }}
       REGISTRY_USER: ${{ secrets.REGISTRY_USER }}
       REGISTRY_PASS: ${{ secrets.REGISTRY_PASS }}
 
@@ -79,7 +93,7 @@ jobs:
           echo $var=${!var};
         done
 
-    - name: Validate and install tools
+    - name: Install required tools
       if: ${{ success() }}
       run: |
         . ./functions.sh
@@ -147,7 +161,7 @@ jobs:
         echo "SOURCE_REPO_FULL=${SOURCE_REPO_FULL}" >> $GITHUB_ENV
         echo "TARGET_REPO_FULL=${TARGET_REPO_FULL}" >> $GITHUB_ENV        
 
-    - name: Extract data via REST API
+    - name: Extract data using REST API
       if: ${{ success() && ( github.event.inputs.extract_main == 'true' || github.event.inputs.extract_import == 'true' ) }} 
       run: |
         set +e
@@ -200,7 +214,7 @@ jobs:
           echo "# repos ----------------"|tee -a main.tf secrets.tf > /dev/null
           cat << EOF>>secrets.tf
           variable "github_token" {
-            description = "Token de acesso ao GitHub"
+            description = "GitHub access token"
             type        = string
             sensitive   = true
             default   = "\$GITHUB_TOKEN"
@@ -746,4 +760,3 @@ jobs:
           echo "Clone was not performed. The destination repository already exists ${TARGET_REPO}"
           exit 1
         fi
-  

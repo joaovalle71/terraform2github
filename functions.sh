@@ -1,5 +1,5 @@
-#this function transform json to a variable="value"; structure that can be loaded in bash using eval
-#requires jq installed
+#this function transform json file to a variable="value" structure that can be loaded in bash using eval
+#requires jq
 format_json2(){
   jq -r --arg prefix "${1}" --arg bk "${2}" '
     def x: . | to_entries[] |
@@ -97,6 +97,7 @@ txt2tsv() {
 	}'
 }
 
+# this function calls the GitHub API and handles pagination, formatting, and error handling
 github_api() {
 	api_name="$1"
 	api_url="$2"
@@ -116,7 +117,7 @@ github_api() {
 			-H "X-GitHub-Api-Version: 2022-11-28" \
 			-D $tmpfile \
 			"${api_url}")
-		#obs: o header retorna mais de um status quando trafega por proxy, por isso o filtro 'HTTP/2'
+		# warning: the GitHub API may return a 200 status code even when there is an error, so we need to check the response body for error messages
 		status=$((grep 'HTTP/2' $tmpfile|| grep 'HTTP/1.1' $tmpfile)|cut -d" " -f2)
 		if [[ ! "${status}" =~ ^20[0-9]*$  ]]; then
 			echo "$result" | jq -r --arg api_name "$api_name" '"var_\($api_name)_error=\"\(.status) \(.message)\";\t"'
@@ -143,9 +144,10 @@ github_api() {
 	rm -f $tmpfile
 }
 
-#function to install tools on $HOME/bin of agent runner 
+#function to install tools in $HOME/bin of agent runner 
 install_tools() {
 	echo "Install tools"
+	# create and configure path to install tools
 	install_dir=$1
  	if [[ -z $install_dir ]]; then install_dir=$HOME/bin; fi
 	if [[ ! -d $install_dir ]]; then mkdir $install_dir; fi
@@ -154,24 +156,26 @@ install_tools() {
       		if [[ ! -z $GITHUB_PATH ]]; then echo "$install_dir" >> $GITHUB_PATH; fi
 	fi
  	echo "PATH=$PATH"
-	#instalar yq se nao existir
+	#install yq if it does not exist
 	echo "------------------------"
 	if ! which yq; then
 	  curl -fsSL -o $install_dir/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 && \
 	  chmod +x $install_dir/yq
   fi
 	yq --version
-	#instalar jq se nao existir
+	#install jq if it does not exist
 	echo "------------------------"
 	if ! which jq; then
-	  curl -fsSL -o $install_dir/jq https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-amd64 && \
+	  jq_version="1.7.1"
+	  curl -fsSL -o $install_dir/jq https://github.com/jqlang/jq/releases/download/jq-${jq_version}/jq-linux-amd64 && \
 	  chmod +x $install_dir/jq
 	fi
  	jq --version
-	#instala terraform se nao existir
+	#install terraform if it does not exist
 	echo "------------------------"
 	if ! which terraform; then
-	  curl -fsSL https://releases.hashicorp.com/terraform/1.12.1/terraform_1.12.1_linux_amd64.zip -o $install_dir/terraform.zip && \
+	  terraform_version="1.12.1"
+	  curl -fsSL https://releases.hashicorp.com/terraform/${terraform_version}/terraform_${terraform_version}_linux_amd64.zip -o $install_dir/terraform.zip && \
 	  unzip -o -q $install_dir/terraform.zip -d $install_dir && \
 	  rm -f $install_dir/terraform.zip && \
 	  chmod +x $install_dir/terraform

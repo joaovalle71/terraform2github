@@ -1,14 +1,14 @@
 #!/usr/bin/bash
 #
-# Executa extracao de dados do github
+# Extracts data from GitHub
 #
-# Funcoes utilizadas no processo de extracao
+# Functions used during the extraction process
 if [[ -z $GITHUB_WORKSPACE ]]; then
     $GITHUB_WORKSPACE=.
 fi
 . $GITHUB_WORKSPACE/functions.sh
 #
-# descomentar para testes locais
+# uncomment for local test
 # export GITHUB_TOKEN=XXXXXXX
 # export GITHUB_WORKSPACE=$(pwd)
 # cd ${GITHUB_WORKSPACE}
@@ -17,30 +17,31 @@ fi
 # ls -latr
 # whoami
 
+# PARAMETERS
 if [[ ! -z $1 ]]; then
-    EXTRACAO_GLOBAL=$1
+    GLOBAL_EXTRACTION=$1
 fi
-if [[ "$EXTRACAO_GLOBAL" != "true" && "$EXTRACAO_GLOBAL" != "false" ]]; then
-    echo "Parametros de execucao incorretos"
+if [[ "$GLOBAL_EXTRACTION" != "true" && "$GLOBAL_EXTRACTION" != "false" ]]; then
+    echo "Incorrect execution parameters"
     exit 1
 fi
 if [[ ! -z $2 ]]; then
     TXT2TSV=$2
 fi
 if [[ "$TXT2TSV" != "true" && "$TXT2TSV" != "false" ]]; then
-    echo "Parametros de execucao incorretos"
+    echo "Incorrect execution parameters"
     exit 1
 fi
 
-if [[ -z $REPOSITORIO ]] && [[ ! -z $3 ]]; then 
-    REPOSITORIO=$3
+if [[ -z $REPOSITORY ]] && [[ ! -z $3 ]]; then 
+    REPOSITORY=$3
 fi
 
 rm -f *.txt*
 #
-# Esta api pode fazer uso intensivo da API que pode atingir os limites de uso em alguns casos
-# Exibe dados do usuario/token e estatisticas dos limites antes de iniciar a execucao
-# Vide limites em https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api?apiVersion=2022-11-28
+# This script may make intensive use of the API, which can hit rate limits in some cases
+# Displays user/token data and rate limit statistics before starting execution
+# See limits at https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api
 #
 if [[ "$DEBUG" == "true" ]]; then
     echo "$(date '+%Y%m%d %H:%M:%S') rates -----------------------------------------------"
@@ -65,17 +66,12 @@ else
     export GITHUB_REPOSITORY_TYPE="orgs"
 fi
 
-#extrai lista de repositorios usando api do github
-echo "$(date '+%Y%m%d %H:%M:%S') Extraindo repos -----------------------------------------------"
-github_api "repo" "https://api.github.com/${GITHUB_REPOSITORY_TYPE}/${GITHUB_REPOSITORY_OWNER}/repos"|grep -E "${REPOSITORIO}">repos.txt &
+# extracts list of repositories using the github api
+echo "$(date '+%Y%m%d %H:%M:%S') Extracting repos -----------------------------------------------"
+github_api "repo" "https://api.github.com/${GITHUB_REPOSITORY_TYPE}/${GITHUB_REPOSITORY_OWNER}/repos"|grep -E "${REPOSITORY}">repos.txt &
 
-# if [[ ! -z "$REPOSITORIO" ]]; then
-#     { github_api "repo" "https://api.github.com/repos/${GITHUB_REPOSITORY_OWNER}/${REPOSITORIO}"|tr '\n' '\t' ; echo ""; }>repos.txt &
-# else
-#     github_api "repo" "https://api.github.com/${GITHUB_REPOSITORY_TYPE}/${GITHUB_REPOSITORY_OWNER}/repos">repos.txt &
-# fi
-if [[ "${EXTRACAO_GLOBAL}" == "true" ]]; then
-    echo "$(date '+%Y%m%d %H:%M:%S') extraindo dados globais -----------------------------------------------"
+if [[ "${GLOBAL_EXTRACTION}" == "true" ]]; then
+    echo "$(date '+%Y%m%d %H:%M:%S') extracting global data -----------------------------------------------"
     if [[ $(grep -c 'var_repo_status="' repos.txt) -gt 0 ]]; then echo "ERROR!";cat repos.txt;exit;fi
     github_api "team" "https://api.github.com/${GITHUB_REPOSITORY_TYPE}/${GITHUB_REPOSITORY_OWNER}/teams">teams.txt &
     github_api "outside_collaborator" "https://api.github.com/${GITHUB_REPOSITORY_TYPE}/${GITHUB_REPOSITORY_OWNER}/outside_collaborators">outside_collaborators.txt &
@@ -89,10 +85,11 @@ if [[ "${EXTRACAO_GLOBAL}" == "true" ]]; then
     github_api "alert" "https://api.github.com/${GITHUB_REPOSITORY_TYPE}/${GITHUB_REPOSITORY_OWNER}/code-scanning/alerts">alerts.txt &
     github_api "security-advisory" "https://api.github.com/${GITHUB_REPOSITORY_TYPE}/${GITHUB_REPOSITORY_OWNER}/security-advisories">security-advisories.txt &
 fi
+#
 wait
 #
-#loop para extrair dados dos repositorios
-echo "$(date '+%Y%m%d %H:%M:%S') Extraindo dados associados a cada repos -------------------------------------------"
+# loop to extract data from repositories
+echo "$(date '+%Y%m%d %H:%M:%S') Extracting data associated with each repo -------------------------------------------"
 while read -r repo && [[ ! -z $repo ]]; do
   eval $repo
   if [[ "$DEBUG" == "true" ]]; then echo "$var_repo_full_name"; fi
@@ -117,25 +114,32 @@ while read -r repo && [[ ! -z $repo ]]; do
   github_api "label" "https://api.github.com/repos/${var_repo_full_name}/labels"|sed "s|^|var_repo_full_name=\"${var_repo_full_name}\";\t|"|grep -v "var_usage_error=">repo_labels.txt.$! &
   github_api "team" "https://api.github.com/repos/${var_repo_full_name}/teams"|sed "s|^|var_repo_full_name=\"${var_repo_full_name}\";\t|"|grep -v "var_usage_error=">repo_teams.txt.$! &
   github_api "collaborator" "https://api.github.com/repos/${var_repo_full_name}/collaborators?affiliation=direct"|sed "s|^|var_repo_full_name=\"${var_repo_full_name}\";\t|"|grep -v "var_usage_error=">repo_collaborators.txt.$! &
-  #repo x projects usa graphql
+  # repo x projects uses graphql
+  # repo_projects.txt
   curl -s -L \
     -H "Authorization: Bearer ${GITHUB_TOKEN}" \
     -H "Content-Type: application/json" \
     -X POST \
     -d '{ "query": "query { repository(owner: \"'${GITHUB_REPOSITORY_OWNER}'\", name: \"'${var_repo_name}'\") { projectsV2(first: 100) { nodes { id, title, url, public, shortDescription, createdAt, updatedAt, creator { login } } } } }" }' \
     "https://api.github.com/graphql"|format_json2 "var_repo_project" ";$(echo -e "\t")"|agg|sed "s|^|var_repo_full_name=\"${var_repo_full_name}\";\t|"|grep -v "var_usage_error=">repo_projects.txt.$! &
+  #
   # github_api "commit" "https://api.github.com/repos/${var_repo_full_name}/commits"|sed "s|^|var_repo_full_name=\"${var_repo_full_name}\";\t|">repo_commits.txt.$! &
   #
+  # controls paralelism to avoid hitting API rate limits
   while [ $(jobs -rp| wc -l) -ge 30 ]; do sleep 1; done
   eval $(set|grep -e "^var_repo_"|cut -d"=" -f1|sed -z 's/\n/;/g;s/var_/unset var_/g')
-done<<<$(grep -E "${REPOSITORIO}" repos.txt)
+done<<<$(grep -E "${REPOSITORY}" repos.txt)
+#
 wait
+# join files with the same name and remove temporary files
 while read -r filename; do
   find . -maxdepth 1 -type f -regex "${filename}\..*[0-9]" -exec bash -c 'cat {}>>$(echo {}|sed "s/\.txt\.[^\.txt\.]*$/.txt/");rm {}' \; &
   while [ $(jobs -rp| wc -l) -ge 30 ]; do sleep 1; done
 done<<<$(find . -maxdepth 1 -type f -regex ".*\.txt\..*[0-9]"|cut -d'.' -f1|sort -u)
+#
 wait
-echo "$(date '+%Y%m%d %H:%M:%S') Extraindo dados dos enviroments -------------------------"
+#
+echo "$(date '+%Y%m%d %H:%M:%S') Extracting data from environments -------------------------"
 while read -r env && [[ ! -z $env ]]; do
   eval $env
   if [[ "$DEBUG" == "true" ]]; then echo "$var_repo_full_name;$var_env_environments_name"; fi
@@ -145,9 +149,12 @@ while read -r env && [[ ! -z $env ]]; do
   while [ $(jobs -rp| wc -l) -ge 30 ]; do sleep 1; done
   eval $(set|grep -e "^var_env_"|cut -d"=" -f1|sed -z 's/\n/;/g;s/var_/unset var_/g')
 done < repo_environments.txt
+#
 wait
+# join files with the same name and remove temporary files
 find . -maxdepth 1 -type f -regex ".*\.txt\..*[0-9]" -exec bash -c 'cat {}>>$(echo {}|sed "s/\.txt\.[^\.txt\.]*$/.txt/");rm {}' \;
-echo "$(date '+%Y%m%d %H:%M:%S') Extraindo rulesets dos repos -------------------------"
+#
+echo "$(date '+%Y%m%d %H:%M:%S') Extracting rulesets from repos -------------------------"
 while read -r repo_ruleset && [[ ! -z $repo_ruleset ]]; do
     eval $repo_ruleset
     if [[ "$DEBUG" == "true" ]]; then echo "$var_repo_full_name;$var_ruleset_name"; fi
@@ -156,10 +163,12 @@ while read -r repo_ruleset && [[ ! -z $repo_ruleset ]]; do
     fi
     eval $(set|grep -e "^var_ruleset_"|cut -d"=" -f1|sed -z 's/\n/;/g;s/var_/unset var_/g')
 done < repo_rulesets.txt
+#
 wait
+# join files with the same name and remove temporary files
 find . -maxdepth 1 -type f -regex ".*\.txt\..*[0-9]" -exec bash -c 'cat {}>>$(echo {}|sed "s/\.txt\.[^\.txt\.]*$/.txt/");rm {}' \;
 #
-echo "$(date '+%Y%m%d %H:%M:%S') Extraindo branch protection dos repos ----------------------"
+echo "$(date '+%Y%m%d %H:%M:%S') Extracting branch protection from repos ----------------------"
 while read -r branch && [[ ! -z $branch ]] ; do
   eval $branch
   if [[ "$DEBUG" == "true" ]]; then echo "$var_repo_full_name;$var_branch_name"; fi
@@ -167,16 +176,21 @@ while read -r branch && [[ ! -z $branch ]] ; do
   while [ $(jobs -rp| wc -l) -ge 30 ]; do sleep 1; done
   eval $(set|grep -e "^var_branch_"|cut -d"=" -f1|sed -z 's/\n/;/g;s/var_/unset var_/g')
 done < repo_branches.txt
+#
 wait
+# join files with the same name and remove temporary files
 find . -maxdepth 1 -type f -regex ".*\.txt\..*[0-9]" -exec bash -c 'cat {}>>$(echo {}|sed "s/\.txt\.[^\.txt\.]*$/.txt/");rm {}' \;
 #
+# convert txt files to tsv files if TXT2TSV is true
 if [[ "${TXT2TSV}" == "true" ]]; then
-  echo "$(date '+%Y%m%d %H:%M:%S') Transforma arquivos TXT em TSV -----------------------------------"
+  echo "$(date '+%Y%m%d %H:%M:%S') Converting TXT files to TSV -----------------------------------"
   while read -r file && [[ ! -z $file ]] ; do
     txt2tsv < "$file" > "${file%.*}.tsv" &
     while [ $(jobs -rp| wc -l) -ge 30 ]; do sleep 1; done
   done<<<$(find . -maxdepth 1 -type f -regex ".*\.txt")
   wait
 fi
-echo "$(date '+%Y%m%d %H:%M:%S') Execucao finalizada ----------------------------------------------"
+#
+echo "$(date '+%Y%m%d %H:%M:%S') Execution completed ----------------------------------------------"
+# list files
 find . -maxdepth 1 -type f -regex ".*\.txt" -exec wc -l {} \;
