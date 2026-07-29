@@ -68,6 +68,7 @@ jobs:
       EXTRACT_MAIN: ${{ github.event.inputs.extract_main }}
       EXTRACT_IMPORT: ${{ github.event.inputs.extract_import }}
       GITHUB_OWNER: ${{ github.repository_owner }}
+      TERRAFORM_VERSION: ${{ vars.TERRAFORM_VERSION }}
       # must define the TERRAFORM_VERSION variable in your repo or organization variables      
       # secrets.tf to inject into Terraform scripts --------------------------------------
       # define the secrets on repo config and on this project (below) to execute in secure way into inject secrets
