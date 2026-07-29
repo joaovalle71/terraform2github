@@ -29,13 +29,13 @@ on:
         required: true
         type: boolean
         default: true
-      plan_terraform:
-        description: 'Plan Terraform?'
+      terraform_plan:
+        description: 'Terraform Plan?'
         required: true
         type: boolean
         default: true
-      apply_terraform:
-        description: 'Apply terraform?'
+      terraform_apply:
+        description: 'Terraform Apply?'
         required: true
         type: boolean
         default: false
@@ -52,13 +52,9 @@ on:
 
 jobs:
   run_terraform:
-    runs-on: ${{ vars.VAR_GITHUB_AGENT }}
+    runs-on: ${{ vars.TF_VAR_GITHUB_AGENT }}
     env:
       # Required variables/secrets that must be defined in your repo
-      # You need an admin token to create and manage repositories
-      GITHUB_TOKEN: ${{ secrets.SEC_GITHUB_TOKEN }}
-      # must define the TERRAFORM_VERSION variable in your repo or organization variables
-      TERRAFORM_VERSION: ${{ vars.TERRAFORM_VERSION }}
       #
       # variables from workflow_dispatch inputs
       ACTIONS_RUNNER_DEBUG: ${{ github.event.inputs.debug }}
@@ -72,13 +68,16 @@ jobs:
       EXTRACT_MAIN: ${{ github.event.inputs.extract_main }}
       EXTRACT_IMPORT: ${{ github.event.inputs.extract_import }}
       GITHUB_OWNER: ${{ github.repository_owner }}
+      # must define the TERRAFORM_VERSION variable in your repo or organization variables      
       # secrets.tf to inject into Terraform scripts --------------------------------------
       # define the secrets on repo config and on this project (below) to execute in secure way into inject secrets
       # example, you can use custom registry or GitHub Container Registry to store your private docker images
-      REGISTRY_URL: ${{ secrets.REGISTRY_URL }}
-      REGISTRY_USER: ${{ secrets.REGISTRY_USER }}
-      REGISTRY_PASS: ${{ secrets.REGISTRY_PASS }}
-      GITHUB_AGENT: ${{ vars.VAR_GITHUB_AGENT }}
+      #
+      # You need an admin token to create and manage repositories
+      GITHUB_TOKEN: ${{ secrets.SEC_GITHUB_TOKEN }}
+      TF_VAR_github_token: ${{ secrets.SEC_GITHUB_TOKEN }}
+      TF_VAR_REGISTRY_USER: ${{ secrets.REGISTRY_USER }}
+      TF_VAR_REGISTRY_PASS: ${{ secrets.REGISTRY_PASS }}
 
     steps:
     
@@ -125,7 +124,6 @@ jobs:
           -H "X-GitHub-Api-Version: 2022-11-28" \
           "https://api.github.com/repos/${GITHUB_REPOSITORY_OWNER}/${SOURCE_REPO}" |format_json2 "repo_source" ";$(echo -e "\t")"|tr -d '\n')
           eval "${SOURCE_REPO_FULL}"
-
         if [[ "$DEBUG" == "true" ]]; then
           set|grep "^repo_source_"
         else
@@ -156,17 +154,16 @@ jobs:
         . ./functions.sh
         eval "${SOURCE_REPO_FULL}"
         eval "${TARGET_REPO_FULL}"
-
         chmod +x $GITHUB_WORKSPACE/extract.sh
         if [[ -e "$GITHUB_WORKSPACE/repos/$TARGET_REPO" ]] && [[ -z "${repo_target_name}" ]] && [[ "$EXTRACT_IMPORT" == "true" ]]; then
           echo "Target Repo Folder exists but repository does not exists."
           echo "Remove repository folder repos/$TARGET_REPO or disable Import option before continue..."
           exit 1
         fi
-
+        #
         mkdir -p $GITHUB_WORKSPACE/repos/$TARGET_REPO
         cd $GITHUB_WORKSPACE/repos/$TARGET_REPO
-
+        #
         if [[ "$EXTRACT_MAIN" == "true" || "$EXTRACT_IMPORT" == "true" ]]; then
           echo "Running extraction"
           $GITHUB_WORKSPACE/extract.sh false true "repo_name=\"$SOURCE_REPO\"|repo_name=\"$TARGET_REPO\""
@@ -205,7 +202,6 @@ jobs:
             description = "GitHub access token"
             type        = string
             sensitive   = true
-            default   = "\$GITHUB_TOKEN"
           }
           variable "github_owner" {
             default   = "$GITHUB_REPOSITORY_OWNER"
@@ -275,7 +271,7 @@ jobs:
           #
           cat << EOF>>secrets.tf
           variable "${var_sec_secrets_name}" {
-            default   = "\$${var_sec_secrets_name^^}"
+            type      = string
             sensitive = true
           }
         EOF
@@ -651,17 +647,14 @@ jobs:
         fi
 
     - name: Terraform INIT/PLAN
-      if: ${{ success() && github.event.inputs.plan_terraform == 'true' }}
+      if: ${{ success() && github.event.inputs.terraform_plan == 'true' }}
       run: |
-        set +e
+        set -e
         . ./functions.sh
         cd $GITHUB_WORKSPACE/repos/$TARGET_REPO
-        #terraform providers
-        terraform validate
         if [[ -f main.tf ]]; then
           echo "# terraform init ----------------------------------" && \ 
-          terraform init
-          [[ $? -eq 0 ]] && \
+          terraform init && \
           echo "# terraform plan ----------------------------------" && \
           terraform plan
         else
@@ -670,9 +663,9 @@ jobs:
         fi
     
     - name: Terraform APPLY
-      if: ${{ success() && github.event.inputs.apply_terraform == 'true' }}
+      if: ${{ success() && github.event.inputs.terraform_apply == 'true' }}
       run: |
-        set +e
+        set -e
         . ./functions.sh
         cd $GITHUB_WORKSPACE/repos/$TARGET_REPO
         if [[ -f main.tf ]]; then
@@ -685,7 +678,7 @@ jobs:
     - name: Remove Secrets
       if: ${{ always() }}
       run: |
-        set +e
+        set -e
         cd $GITHUB_WORKSPACE/repos/$TARGET_REPO
         cp secrets.tf.bkp secrets.tf
 
@@ -724,11 +717,10 @@ jobs:
       if: ${{ success() }}
       run: |
         set +e
-        #curl -k -L -s -H "Authorization: token ${{ secrets.SEC_GITHUB_TOKEN }}" https://api.github.com/repos/${{ github.repository }}
         git config --local --unset-all http.https://github.com/.extraheader
         git config user.name "GitHub Actions Bot"
         git config user.email "github-actions[bot]@users.noreply.github.com"
-        git remote set-url origin "https://x-access-token:${{ secrets.SEC_GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+        git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git"
         git add .
         git diff --cached --quiet || git commit -m "Automatic update via GitHub Actions"
         git push origin HEAD
