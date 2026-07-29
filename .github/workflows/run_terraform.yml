@@ -653,7 +653,7 @@ jobs:
         . ./functions.sh
         cd $GITHUB_WORKSPACE/repos/$TARGET_REPO
         if [[ -f main.tf ]]; then
-          echo "# terraform init ----------------------------------" && \ 
+          echo "# terraform init ----------------------------------" && \
           terraform init && \
           echo "# terraform plan ----------------------------------" && \
           terraform plan
