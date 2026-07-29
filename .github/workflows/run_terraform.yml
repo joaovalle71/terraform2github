@@ -76,7 +76,8 @@ jobs:
       #
       # You need an admin token to create and manage repositories
       GITHUB_TOKEN: ${{ secrets.SEC_GITHUB_TOKEN }}
-      TF_VAR_github_token: ${{ secrets.SEC_GITHUB_TOKEN }}
+      TF_VAR_GITHUB_TOKEN: ${{ secrets.SEC_GITHUB_TOKEN }}
+      # TF_VAR_github_token: ${{ secrets.SEC_GITHUB_TOKEN }}
       TF_VAR_REGISTRY_USER: ${{ secrets.REGISTRY_USER }}
       TF_VAR_REGISTRY_PASS: ${{ secrets.REGISTRY_PASS }}
 
@@ -199,7 +200,7 @@ jobs:
           echo "# BRANCH     : $TARGET_BRANCH"|tee -a main.tf secrets.tf > /dev/null
           echo "# repos ----------------"|tee -a main.tf secrets.tf > /dev/null
           cat << EOF>>secrets.tf
-          variable "github_token" {
+          variable "GITHUB_TOKEN" {
             description = "GitHub access token"
             type        = string
             sensitive   = true
