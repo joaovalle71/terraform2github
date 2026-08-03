@@ -79,7 +79,7 @@ jobs:
       # You need an admin token to create and manage repositories
       # GITHUB_TOKEN must be declared to be used by this current script api commands 
       GITHUB_TOKEN: ${{ secrets.SEC_GITHUB_TOKEN }}
-      SEC_GITHUB_TOKEN: ${{ secrets.SEC_GITHUB_TOKEN }}
+      TF_VAR_SEC_GITHUB_TOKEN: ${{ secrets.SEC_GITHUB_TOKEN }}
       # TF_VAR_GITHUB_TOKEN uses TF_VAR prefix to pass the secret to Terraform scripts
       TF_VAR_GITHUB_TOKEN: ${{ secrets.SEC_GITHUB_TOKEN }}
       #
