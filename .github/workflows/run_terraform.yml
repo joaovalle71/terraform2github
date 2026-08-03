@@ -52,7 +52,7 @@ on:
 
 jobs:
   run_terraform:
-    runs-on: ${{ vars.TF_VAR_GITHUB_AGENT }}
+    runs-on: ${{ vars.VAR_GITHUB_AGENT }}
     env:
       # Required variables/secrets that must be defined in your repo
       # Use TF_VAR prefix to pass env variables to Terraform scripts
@@ -78,13 +78,13 @@ jobs:
       #
       # You need an admin token to create and manage repositories
       # GITHUB_TOKEN must be declared to be used by this current script api commands 
-      GITHUB_TOKEN: ${{ secrets.TF_VAR_GITHUB_TOKEN }}
+      GITHUB_TOKEN: ${{ secrets.SEC_GITHUB_TOKEN }}
       # TF_VAR_GITHUB_TOKEN uses TF_VAR prefix to pass the secret to Terraform scripts
-      TF_VAR_GITHUB_TOKEN: ${{ secrets.TF_VAR_GITHUB_TOKEN }}
+      TF_VAR_GITHUB_TOKEN: ${{ secrets.SEC_GITHUB_TOKEN }}
       #
-      TF_VAR_REGISTRY_URL: ${{ vars.TF_VAR_REGISTRY_URL }}
-      TF_VAR_REGISTRY_USER: ${{ secrets.TF_VAR_REGISTRY_USER }}
-      TF_VAR_REGISTRY_TOKEN: ${{ secrets.TF_VAR_REGISTRY_TOKEN }}
+      TF_VAR_REGISTRY_URL: ${{ vars.REGISTRY_URL }}
+      TF_VAR_REGISTRY_USER: ${{ secrets.REGISTRY_USER }}
+      TF_VAR_REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
 
     steps:
     
