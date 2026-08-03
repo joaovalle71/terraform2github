@@ -55,8 +55,6 @@ jobs:
     runs-on: ${{ vars.VAR_GITHUB_AGENT }}
     env:
       # Required variables/secrets that must be defined in your repo
-      # Use TF_VAR prefix to pass env variables to Terraform scripts
-      # https://developer.hashicorp.com/terraform/language/values/variables#environment-variables
       #
       # variables from workflow_dispatch inputs
       ACTIONS_RUNNER_DEBUG: ${{ github.event.inputs.debug }}
@@ -70,19 +68,19 @@ jobs:
       EXTRACT_MAIN: ${{ github.event.inputs.extract_main }}
       EXTRACT_IMPORT: ${{ github.event.inputs.extract_import }}
       GITHUB_OWNER: ${{ github.repository_owner }}
-      TERRAFORM_VERSION: ${{ vars.TERRAFORM_VERSION }}
       # must define the TERRAFORM_VERSION variable in your repo or organization variables      
+      TERRAFORM_VERSION: ${{ vars.TERRAFORM_VERSION }}
       # secrets.tf to inject into Terraform scripts --------------------------------------
       # define the secrets on repo config and on this project (below) to execute in secure way into inject secrets
       # example, you can use custom registry or GitHub Container Registry to store your private docker images
       #
-      # You need an admin token to create and manage repositories
-      # GITHUB_TOKEN must be declared to be used by this current script api commands 
+      # Admin GITHUB_TOKEN must be declared to be used by this current script to run api commands 
       GITHUB_TOKEN: ${{ secrets.SEC_GITHUB_TOKEN }}
-      TF_VAR_SEC_GITHUB_TOKEN: ${{ secrets.SEC_GITHUB_TOKEN }}
       # TF_VAR_GITHUB_TOKEN uses TF_VAR prefix to pass the secret to Terraform scripts
+      # https://developer.hashicorp.com/terraform/language/values/variables#environment-variables
       TF_VAR_GITHUB_TOKEN: ${{ secrets.SEC_GITHUB_TOKEN }}
       #
+      TF_VAR_SEC_GITHUB_TOKEN: ${{ secrets.SEC_GITHUB_TOKEN }}
       TF_VAR_REGISTRY_URL: ${{ vars.REGISTRY_URL }}
       TF_VAR_REGISTRY_USER: ${{ secrets.REGISTRY_USER }}
       TF_VAR_REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
