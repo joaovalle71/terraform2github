@@ -75,10 +75,10 @@ jobs:
       # example, you can use custom registry or GitHub Container Registry to store your private docker images
       #
       # You need an admin token to create and manage repositories
-      # GITHUB_TOKEN: ${{ secrets.SEC_GITHUB_TOKEN }}
+      GITHUB_TOKEN: ${{ secrets.SEC_GITHUB_TOKEN }}
       TF_VAR_GITHUB_TOKEN: ${{ secrets.SEC_GITHUB_TOKEN }}
       TF_VAR_SEC_GITHUB_TOKEN: ${{ secrets.SEC_GITHUB_TOKEN }}
-      # TF_VAR_github_token: ${{ secrets.SEC_GITHUB_TOKEN }}
+      #
       TF_VAR_REGISTRY_USER: ${{ secrets.REGISTRY_USER }}
       TF_VAR_REGISTRY_PASS: ${{ secrets.REGISTRY_PASS }}
 
