@@ -268,7 +268,7 @@ jobs:
           fi
 
           # verify it tf_var_ value exists in the environment variables to use it on terraform
-        if [[ "$EXTRACT_MAIN" == "true" && "${var_repo_full_name}" == "${GITHUB_REPOSITORY_OWNER}/${SOURCE_REPO}" && ! -z "${var_sec_secrets_name_tf}" ]]; then
+        if [[ "$EXTRACT_MAIN" == "true" && "${var_repo_full_name}" == "${GITHUB_REPOSITORY_OWNER}/${SOURCE_REPO}" && ! -z "${!var_sec_secrets_name_tf}" ]]; then
           echo "# secrets ----------------"|tee -a main.tf secrets.tf > /dev/null
           cat << EOF>>main.tf
           resource "github_actions_secret" "${var_sec_secrets_name}" {
