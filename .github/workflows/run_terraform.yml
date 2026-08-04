@@ -259,13 +259,14 @@ jobs:
         cd $GITHUB_WORKSPACE/repos/$TARGET_REPO
         while read -r secret && [[ ! -z "${secret}" ]]; do
           eval $secret
+          var_sec_secrets_name_tf=TF_VAR_${var_sec_secrets_name}
           if [[ "$DEBUG" == "true" ]]; then
             set|grep "^var_sec_"
             echo "------------------------------"
           else
             set|grep -E "^var_sec_secrets_name"
           fi
-          var_sec_secrets_name_tf=TF_VAR_${var_sec_secrets_name}
+
           # verify it tf_var_ value exists in the environment variables to use it on terraform
         if [[ "$EXTRACT_MAIN" == "true" && "${var_repo_full_name}" == "${GITHUB_REPOSITORY_OWNER}/${SOURCE_REPO}" && ! -z "${var_sec_secrets_name_tf}" ]]; then
           echo "# secrets ----------------"|tee -a main.tf secrets.tf > /dev/null
