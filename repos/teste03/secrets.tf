@@ -13,6 +13,16 @@
     type        = string
   }
 # secrets ----------------
+  variable "REGISTRY_TOKEN" {
+    default   = "$REGISTRY_TOKEN"
+    sensitive = true
+  }
+# secrets ----------------
+  variable "REGISTRY_USER" {
+    default   = "$REGISTRY_USER"
+    sensitive = true
+  }
+# secrets ----------------
   variable "SEC_GITHUB_TOKEN" {
     default   = "$SEC_GITHUB_TOKEN"
     sensitive = true
