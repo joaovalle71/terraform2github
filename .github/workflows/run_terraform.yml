@@ -79,8 +79,7 @@ jobs:
       # TF_VAR_GITHUB_TOKEN uses TF_VAR prefix to pass the secret to Terraform scripts
       # https://developer.hashicorp.com/terraform/language/values/variables#environment-variables
       TF_VAR_GITHUB_TOKEN: ${{ secrets.SEC_GITHUB_TOKEN }}
-      #
-      TF_VAR_SEC_GITHUB_TOKEN: ${{ secrets.SEC_GITHUB_TOKEN }}
+      #  TF_VAR_SEC_GITHUB_TOKEN: ${{ secrets.SEC_GITHUB_TOKEN }}
       TF_VAR_REGISTRY_URL: ${{ vars.REGISTRY_URL }}
       TF_VAR_REGISTRY_USER: ${{ secrets.REGISTRY_USER }}
       TF_VAR_REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
