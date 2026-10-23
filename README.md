@@ -1,4 +1,7 @@
 # terraform2github
+## Application Function Summary:
+This application is an "Infrastructure as Code" tool for GitHub governance. It enables a company to take the security and operational configurations of a "template" repository and replicate them at scale across new repositories, ensuring that all of them adhere to the same standards for branch protection, secrets, and permissions without the need for manual configuration of each one.
+
 ## Scripts to extract, synchronize, and clone GitHub repository rules and contents
 * These pipelines allow you to clone GitHub rules, branches, configurations and even repository contents 
 * You can use to have a valid repository template to create new ones or update the existents

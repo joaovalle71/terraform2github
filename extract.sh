@@ -114,7 +114,9 @@ echo "$(date '+%Y%m%d %H:%M:%S') Extracting data associated with each repo -----
   github_api "label" "https://api.github.com/repos/${var_repo_full_name}/labels"|sed "s|^|var_repo_full_name=\"${var_repo_full_name}\";\t|"|grep -v "var_usage_error=">repo_labels.txt.$! &
   github_api "team" "https://api.github.com/repos/${var_repo_full_name}/teams"|sed "s|^|var_repo_full_name=\"${var_repo_full_name}\";\t|"|grep -v "var_usage_error=">repo_teams.txt.$! &
   github_api "collaborator" "https://api.github.com/repos/${var_repo_full_name}/collaborators?affiliation=direct"|sed "s|^|var_repo_full_name=\"${var_repo_full_name}\";\t|"|grep -v "var_usage_error=">repo_collaborators.txt.$! &
-  # repo x projects uses graphql
+  # deploy_keys "https://api.github.com/repos/${var_repo_full_name}/keys"
+  # 
+  repo x projects uses graphql
   # repo_projects.txt
   curl -s -L \
     -H "Authorization: Bearer ${GITHUB_TOKEN}" \
@@ -146,6 +148,7 @@ echo "$(date '+%Y%m%d %H:%M:%S') Extracting data from environments -------------
   github_api "env_rule" "https://api.github.com/repos/${var_repo_full_name}/environments/${var_env_environments_name}/deployment_protection_rules"|sed "s|^|var_repo_full_name=\"${var_repo_full_name}\";\tvar_env_environments_name=\"${var_env_environments_name}\";\t|">env_rules.txt.$! &
   github_api "env_var" "https://api.github.com/repos/${var_repo_full_name}/environments/${var_env_environments_name}/variables"|sed "s|^|var_repo_full_name=\"${var_repo_full_name}\";\tvar_env_environments_name=\"${var_env_environments_name}\";\t|">env_variables.txt.$! &
   github_api "env_sec" "https://api.github.com/repos/${var_repo_full_name}/environments/${var_env_environments_name}/secrets"|sed "s|^|var_repo_full_name=\"${var_repo_full_name}\";\tvar_env_environments_name=\"${var_env_environments_name}\";\t|">env_secrets.txt.$! &
+  github_api "env_pol" "https://api.github.com/repos/${var_repo_full_name}/environments/${var_env_environments_name}/deployment-branch-policies"|sed "s|^|var_repo_full_name=\"${var_repo_full_name}\";\tvar_env_environments_name=\"${var_env_environments_name}\";\t|">env_policies.txt.$! &
   while [ $(jobs -rp| wc -l) -ge 30 ]; do sleep 1; done
   eval $(set|grep -e "^var_env_"|cut -d"=" -f1|sed -z 's/\n/;/g;s/var_/unset var_/g')
 done < repo_environments.txt
